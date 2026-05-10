@@ -49,10 +49,21 @@ test("adds a card to a column", async ({ page }) => {
 test("cards are draggable between columns", async ({ page }) => {
   await login(page);
   // Verify cards have the draggable role set up by dnd-kit
-  const card = page.getByTestId("card-card-1");
-  await expect(card).toHaveAttribute("role", "button");
+  const firstColumn = page.locator('[data-testid^="column-"]').first();
+  const card = firstColumn.locator('[role="button"]').first();
   await expect(card).toHaveAttribute("tabindex", "0");
-  // Verify the target column exists and is a droppable region
-  const targetColumn = page.getByTestId("column-col-review");
-  await expect(targetColumn).toBeVisible();
+});
+
+test("card persists after page reload", async ({ page }) => {
+  await login(page);
+  const firstColumn = page.locator('[data-testid^="column-"]').first();
+  await firstColumn.getByRole("button", { name: /add a card/i }).click();
+  await firstColumn.getByPlaceholder("Card title").fill("Persistent card");
+  await firstColumn.getByPlaceholder("Details").fill("Should survive reload.");
+  await firstColumn.getByRole("button", { name: /add card/i }).click();
+  await expect(firstColumn.getByText("Persistent card")).toBeVisible();
+
+  await page.reload();
+  await page.getByRole("heading", { name: "Kanban Studio" }).waitFor();
+  await expect(page.locator('[data-testid^="column-"]').first().getByText("Persistent card")).toBeVisible();
 });

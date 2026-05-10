@@ -129,24 +129,24 @@ Implement the database layer and all Kanban API routes. The SQLite file lives at
 
 ---
 
-## Part 7: Frontend + Backend integration
+## Part 7: Frontend + Backend integration — COMPLETE
 
 Wire the frontend to use the real backend API instead of hardcoded `initialData`.
 
 ### Steps
-- [ ] Create `src/lib/api.ts` with typed fetch wrappers for every backend route (no inline fetches in components)
-- [ ] Replace `initialData` usage in `KanbanBoard.tsx` with a `useEffect` that calls `GET /api/board` on mount
-- [ ] All mutations (rename column, add card, delete card, move card) call the corresponding API endpoint; update local state optimistically then sync with server response
-- [ ] On API error (non-2xx), show a non-intrusive toast/banner and revert optimistic update
-- [ ] Ensure the board re-fetches after any AI update (Part 10 preparation: expose a `refresh()` function)
+- [x] Create `src/lib/api.ts` with typed fetch wrappers for every backend route (no inline fetches in components)
+- [x] Replace `initialData` usage in `KanbanBoard.tsx` with a `useEffect` that calls `GET /api/board` on mount
+- [x] All mutations (rename column, add card, delete card, move card) call the corresponding API endpoint; update local state optimistically then sync with server response
+- [x] On API error (non-2xx), show a non-intrusive toast/banner and revert optimistic update
+- [x] Ensure the board re-fetches after any AI update (Part 10 preparation: expose a `refresh()` function)
 
 ### Tests & success criteria
-- [ ] Full flow works end-to-end: log in → see board → add card → refresh page → card persists
-- [ ] Moving a card persists across page reload
-- [ ] Renaming a column persists across page reload
-- [ ] Deleting a card persists across page reload
-- [ ] Frontend unit tests mock `src/lib/api.ts` and cover loading, error, and success states
-- [ ] Playwright e2e test covers the full persistence flow
+- [x] Full flow works end-to-end: log in → see board → add card → refresh page → card persists
+- [x] Moving a card persists across page reload
+- [x] Renaming a column persists across page reload
+- [x] Deleting a card persists across page reload
+- [x] Frontend unit tests mock `src/lib/api.ts` and cover loading, error, and success states
+- [x] Playwright e2e test covers the full persistence flow
 
 ---
 
