@@ -150,21 +150,21 @@ Wire the frontend to use the real backend API instead of hardcoded `initialData`
 
 ---
 
-## Part 8: AI connectivity
+## Part 8: AI connectivity — COMPLETE
 
 Add the ability for the backend to call the AI via OpenRouter.
 
 ### Steps
-- [ ] Add `openai` Python package to `pyproject.toml` (OpenRouter is OpenAI-compatible)
-- [ ] Create `backend/ai.py`: thin wrapper that creates an `AsyncOpenAI` client pointed at `https://openrouter.ai/api/v1`, using `OPENROUTER_API_KEY` from environment
-- [ ] Load `.env` at container startup (via `python-dotenv` or Docker `env_file` directive in `docker-compose.yml`)
-- [ ] Add `GET /api/ai/ping` route that sends "What is 2+2?" to the model and returns the raw text response — for smoke-testing only; remove or gate behind a dev flag before Part 10
-- [ ] Ensure `OPENROUTER_API_KEY` is never logged or returned in API responses
+- [x] Add `openai` Python package to `pyproject.toml` (OpenRouter is OpenAI-compatible)
+- [x] Create `backend/ai.py`: thin wrapper that creates an `AsyncOpenAI` client pointed at `https://openrouter.ai/api/v1`, using `OPENROUTER_API_KEY` from environment
+- [x] Load `.env` at container startup (via `python-dotenv` or Docker `env_file` directive in `docker-compose.yml`)
+- [x] Add `GET /api/ai/ping` route that sends "What is 2+2?" to the model and returns the raw text response — for smoke-testing only; remove or gate behind a dev flag before Part 10
+- [x] Ensure `OPENROUTER_API_KEY` is never logged or returned in API responses
 
 ### Tests & success criteria
-- [ ] `curl http://localhost:8000/api/ai/ping` returns a response containing "4"
-- [ ] Unit test mocks the OpenAI client and verifies the wrapper calls the correct model and base URL
-- [ ] API key is read from environment; hardcoding it causes a test failure
+- [x] `curl http://localhost:8000/api/ai/ping` returns a response containing "4"
+- [x] Unit test mocks the OpenAI client and verifies the wrapper calls the correct model and base URL
+- [x] API key is read from environment; hardcoding it causes a test failure
 
 ---
 
