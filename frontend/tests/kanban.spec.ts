@@ -6,6 +6,8 @@ async function login(page: import("@playwright/test").Page) {
   await page.getByLabel("Password").fill("password");
   await page.getByRole("button", { name: /sign in/i }).click();
   await page.waitForURL("/");
+  // Wait for AuthGuard to resolve and board to render
+  await page.getByRole("heading", { name: "Kanban Studio" }).waitFor();
 }
 
 test("login with correct credentials shows the board", async ({ page }) => {
@@ -24,7 +26,7 @@ test("login with wrong credentials shows an error", async ({ page }) => {
 test("logout redirects to login", async ({ page }) => {
   await login(page);
   await page.getByRole("button", { name: /log out/i }).click();
-  await page.waitForURL("/login");
+  await page.waitForURL(/\/login/);
   await expect(page.getByRole("heading", { name: "Kanban Studio" })).toBeVisible();
 });
 
