@@ -1,11 +1,10 @@
-# ── Stage 1: frontend build (placeholder for Part 2; activated in Part 3) ──────
-# Uncomment in Part 3 when the frontend is ready to be built.
-# FROM node:22-slim AS frontend-build
-# WORKDIR /app
-# COPY frontend/package*.json ./
-# RUN npm ci
-# COPY frontend/ ./
-# RUN npm run build
+# ── Stage 1: frontend build ───────────────────────────────────────────────────
+FROM node:22-slim AS frontend-build
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
 
 # ── Stage 2: backend ───────────────────────────────────────────────────────────
 FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS backend
@@ -19,8 +18,8 @@ RUN uv sync --no-install-project
 # Copy backend source
 COPY backend/ ./backend/
 
-# Copy static files (placeholder HTML for Part 2; replaced by Next.js output in Part 3)
-COPY backend/static/ ./static/
+# Copy Next.js static export from frontend-build stage
+COPY --from=frontend-build /app/out/ ./static/
 
 # Data directory for SQLite (mounted as a volume at runtime)
 RUN mkdir -p /app/data
