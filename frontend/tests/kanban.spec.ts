@@ -67,3 +67,15 @@ test("card persists after page reload", async ({ page }) => {
   await page.getByRole("heading", { name: "Kanban Studio" }).waitFor();
   await expect(page.locator('[data-testid^="column-"]').first().getByText("Persistent card")).toBeVisible();
 });
+
+test("AI sidebar opens and receives a real reply from OpenRouter", async ({ page }) => {
+  test.setTimeout(60_000);
+  await login(page);
+  await page.getByRole("button", { name: /toggle ai assistant/i }).click();
+  await expect(page.getByTestId("ai-sidebar")).toBeVisible();
+  await page.getByLabel("Message to AI").fill("Reply with exactly one word: hello");
+  await page.getByRole("button", { name: "Send" }).click();
+  // Wait for the thinking indicator then the actual reply
+  await expect(page.getByTestId("ai-thinking")).toBeVisible();
+  await expect(page.getByTestId("ai-message-assistant").first()).toBeVisible({ timeout: 50_000 });
+});

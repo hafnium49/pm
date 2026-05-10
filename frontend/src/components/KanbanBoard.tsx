@@ -17,12 +17,14 @@ import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
 import { moveCard as localMoveCard, type BoardData } from "@/lib/kanban";
 import * as api from "@/lib/api";
+import { AIChatSidebar } from "@/components/AIChatSidebar";
 
 export const KanbanBoard = () => {
   const router = useRouter();
   const [board, setBoard] = useState<BoardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showError = (msg: string) => {
@@ -199,12 +201,21 @@ export const KanbanBoard = () => {
                   One board. Five columns. Zero clutter.
                 </p>
               </div>
-              <button
-                onClick={handleLogout}
-                className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
-              >
-                Log out
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSidebarOpen((o) => !o)}
+                  aria-label="Toggle AI assistant"
+                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary-blue)] transition hover:border-[var(--primary-blue)]"
+                >
+                  AI
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-full border border-[var(--stroke)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+                >
+                  Log out
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-4">
@@ -247,6 +258,7 @@ export const KanbanBoard = () => {
           </DragOverlay>
         </DndContext>
       </main>
+      {sidebarOpen && <AIChatSidebar onRefresh={refresh} />}
     </div>
   );
 };

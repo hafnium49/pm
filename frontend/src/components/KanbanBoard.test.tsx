@@ -18,6 +18,7 @@ const mockBoard: BoardData = {
 };
 
 const mockFetchBoard = vi.fn();
+const mockSendChatMessage = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   fetchBoard: (...args: unknown[]) => mockFetchBoard(...args),
@@ -25,12 +26,14 @@ vi.mock("@/lib/api", () => ({
   createCard: vi.fn().mockResolvedValue({ id: "99", title: "New card", details: "Notes" }),
   deleteCard: vi.fn().mockResolvedValue(undefined),
   moveCard: vi.fn().mockResolvedValue(undefined),
+  sendChatMessage: (...args: unknown[]) => mockSendChatMessage(...args),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
 beforeEach(() => {
   mockFetchBoard.mockResolvedValue(mockBoard);
+  mockSendChatMessage.mockResolvedValue({ message: "Hello from AI!", board_updates: [] });
 });
 
 const getFirstColumn = async () => {
@@ -73,5 +76,43 @@ describe("KanbanBoard", () => {
     mockFetchBoard.mockRejectedValueOnce(new Error("network error"));
     render(<KanbanBoard />);
     expect(await screen.findByText(/could not load board/i)).toBeInTheDocument();
+  });
+});
+
+describe("AI chat sidebar", () => {
+  it("toggles open and closed via the AI button", async () => {
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/column-/i);
+    expect(screen.queryByTestId("ai-sidebar")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
+    expect(screen.getByTestId("ai-sidebar")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
+    expect(screen.queryByTestId("ai-sidebar")).not.toBeInTheDocument();
+  });
+
+  it("sends a message and shows the AI reply", async () => {
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/column-/i);
+    await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
+    await userEvent.type(screen.getByLabelText(/message to ai/i), "Hello");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+    expect(await screen.findByText("Hello from AI!")).toBeInTheDocument();
+  });
+
+  it("refreshes the board when AI returns board_updates", async () => {
+    mockSendChatMessage.mockResolvedValueOnce({
+      message: "Added a card.",
+      board_updates: [{ id: null, column_id: "1", title: "AI card", details: "", delete: false }],
+    });
+    mockFetchBoard
+      .mockResolvedValueOnce(mockBoard)
+      .mockResolvedValueOnce(mockBoard);
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/column-/i);
+    await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
+    await userEvent.type(screen.getByLabelText(/message to ai/i), "Add a card");
+    await userEvent.click(screen.getByRole("button", { name: /send/i }));
+    expect(await screen.findByText("Added a card.")).toBeInTheDocument();
+    expect(mockFetchBoard).toHaveBeenCalledTimes(2);
   });
 });
