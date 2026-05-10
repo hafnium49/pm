@@ -78,15 +78,15 @@ Protect the Kanban board behind a login screen. Credentials are hardcoded (`user
 
 ---
 
-## Part 5: Database modeling
+## Part 5: Database modeling — COMPLETE
 
 Design and document the SQLite schema before writing any database code.
 
 ### Steps
-- [ ] Design schema supporting multiple users (future-proof), one board per user (MVP), columns with ordered cards
-- [ ] Save schema as `docs/schema.json` (JSON representation of tables and columns)
-- [ ] Write a brief `docs/DATABASE.md` explaining the schema, the normalization decisions, and how ordering is handled
-- [ ] Get user sign-off before proceeding to Part 6
+- [x] Design schema supporting multiple users (future-proof), one board per user (MVP), columns with ordered cards
+- [x] Save schema as `docs/schema.json` (JSON representation of tables and columns)
+- [x] Write a brief `docs/DATABASE.md` explaining the schema, the normalization decisions, and how ordering is handled
+- [x] Get user sign-off before proceeding to Part 6
 
 ### Schema (proposed)
 ```
@@ -98,8 +98,8 @@ cards         id (PK), column_id (FK→columns), title, details, position (int)
 Cards and columns use an integer `position` field for ordering (avoids array joins).
 
 ### Tests & success criteria
-- [ ] `docs/schema.json` and `docs/DATABASE.md` exist and are consistent with each other
-- [ ] User has reviewed and approved the schema
+- [x] `docs/schema.json` and `docs/DATABASE.md` exist and are consistent with each other
+- [x] User has reviewed and approved the schema
 
 ---
 

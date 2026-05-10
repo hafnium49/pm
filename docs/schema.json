@@ -1,0 +1,39 @@
+{
+  "tables": [
+    {
+      "name": "users",
+      "columns": [
+        { "name": "id",              "type": "INTEGER", "constraints": ["PRIMARY KEY", "AUTOINCREMENT"] },
+        { "name": "username",        "type": "TEXT",    "constraints": ["NOT NULL", "UNIQUE"] },
+        { "name": "hashed_password", "type": "TEXT",    "constraints": ["NOT NULL"] }
+      ]
+    },
+    {
+      "name": "boards",
+      "columns": [
+        { "name": "id",      "type": "INTEGER", "constraints": ["PRIMARY KEY", "AUTOINCREMENT"] },
+        { "name": "user_id", "type": "INTEGER", "constraints": ["NOT NULL", "REFERENCES users(id) ON DELETE CASCADE"] },
+        { "name": "name",    "type": "TEXT",    "constraints": ["NOT NULL"] }
+      ]
+    },
+    {
+      "name": "columns",
+      "columns": [
+        { "name": "id",       "type": "INTEGER", "constraints": ["PRIMARY KEY", "AUTOINCREMENT"] },
+        { "name": "board_id", "type": "INTEGER", "constraints": ["NOT NULL", "REFERENCES boards(id) ON DELETE CASCADE"] },
+        { "name": "title",    "type": "TEXT",    "constraints": ["NOT NULL"] },
+        { "name": "position", "type": "INTEGER", "constraints": ["NOT NULL"] }
+      ]
+    },
+    {
+      "name": "cards",
+      "columns": [
+        { "name": "id",        "type": "INTEGER", "constraints": ["PRIMARY KEY", "AUTOINCREMENT"] },
+        { "name": "column_id", "type": "INTEGER", "constraints": ["NOT NULL", "REFERENCES columns(id) ON DELETE CASCADE"] },
+        { "name": "title",     "type": "TEXT",    "constraints": ["NOT NULL"] },
+        { "name": "details",   "type": "TEXT",    "constraints": ["NOT NULL", "DEFAULT ''"] },
+        { "name": "position",  "type": "INTEGER", "constraints": ["NOT NULL"] }
+      ]
+    }
+  ]
+}
