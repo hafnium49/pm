@@ -1,3 +1,4 @@
+import json
 import os
 from openai import AsyncOpenAI
 
@@ -17,3 +18,13 @@ async def chat(messages: list[dict]) -> str:
         messages=messages,
     )
     return response.choices[0].message.content or ""
+
+
+async def chat_json(messages: list[dict]) -> dict:
+    client = get_client()
+    response = await client.chat.completions.create(
+        model=MODEL,
+        messages=messages,
+        response_format={"type": "json_object"},
+    )
+    return json.loads(response.choices[0].message.content or "{}")

@@ -168,12 +168,12 @@ Add the ability for the backend to call the AI via OpenRouter.
 
 ---
 
-## Part 9: AI chat backend
+## Part 9: AI chat backend — COMPLETE
 
 Extend the backend to accept conversation history + board state, and return a structured response that may include Kanban updates.
 
 ### Steps
-- [ ] Define a Pydantic response model `AIChatResponse`:
+- [x] Define a Pydantic response model `AIChatResponse`:
   ```python
   class CardUpdate(BaseModel):
       id: str | None          # None = new card
@@ -185,15 +185,15 @@ Extend the backend to accept conversation history + board state, and return a st
       message: str
       board_updates: list[CardUpdate] = []
   ```
-- [ ] Create `POST /api/ai/chat` accepting `{messages: [{role, content}]}` (conversation history)
-- [ ] The route fetches the current board for the user, injects it as a system message, appends the user messages, and calls the model with `response_format` set to JSON schema of `AIChatResponse`
-- [ ] If `board_updates` is non-empty, apply each update to the database before returning
-- [ ] Return the `AIChatResponse` to the client
+- [x] Create `POST /api/ai/chat` accepting `{messages: [{role, content}]}` (conversation history)
+- [x] The route fetches the current board for the user, injects it as a system message, appends the user messages, and calls the model with `response_format` set to JSON schema of `AIChatResponse`
+- [x] If `board_updates` is non-empty, apply each update to the database before returning
+- [x] Return the `AIChatResponse` to the client
 
 ### Tests & success criteria
-- [ ] Unit test: mock AI response containing a `board_updates` entry → verify DB is updated and response is returned
-- [ ] Unit test: mock AI response with empty `board_updates` → DB unchanged
-- [ ] Unit test: malformed AI response → 500 with a clear error, no DB change
+- [x] Unit test: mock AI response containing a `board_updates` entry → verify DB is updated and response is returned
+- [x] Unit test: mock AI response with empty `board_updates` → DB unchanged
+- [x] Unit test: malformed AI response → 500 with a clear error, no DB change
 - [ ] Integration test (against live OpenRouter, only run manually / in CI with key): send "Add a card called Test Card to Backlog" → card appears in board
 
 ---
