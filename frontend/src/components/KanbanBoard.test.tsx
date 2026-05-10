@@ -32,7 +32,9 @@ vi.mock("@/lib/api", () => ({
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
 beforeEach(() => {
+  mockFetchBoard.mockClear();
   mockFetchBoard.mockResolvedValue(mockBoard);
+  mockSendChatMessage.mockClear();
   mockSendChatMessage.mockResolvedValue({ message: "Hello from AI!", board_updates: [] });
 });
 

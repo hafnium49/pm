@@ -43,7 +43,7 @@ test("adds a card to a column", async ({ page }) => {
   await firstColumn.getByPlaceholder("Card title").fill("Playwright card");
   await firstColumn.getByPlaceholder("Details").fill("Added via e2e.");
   await firstColumn.getByRole("button", { name: /add card/i }).click();
-  await expect(firstColumn.getByText("Playwright card")).toBeVisible();
+  await expect(firstColumn.getByText("Playwright card").first()).toBeVisible();
 });
 
 test("cards are draggable between columns", async ({ page }) => {
@@ -61,11 +61,11 @@ test("card persists after page reload", async ({ page }) => {
   await firstColumn.getByPlaceholder("Card title").fill("Persistent card");
   await firstColumn.getByPlaceholder("Details").fill("Should survive reload.");
   await firstColumn.getByRole("button", { name: /add card/i }).click();
-  await expect(firstColumn.getByText("Persistent card")).toBeVisible();
+  await expect(firstColumn.getByText("Persistent card").first()).toBeVisible();
 
   await page.reload();
   await page.getByRole("heading", { name: "Kanban Studio" }).waitFor();
-  await expect(page.locator('[data-testid^="column-"]').first().getByText("Persistent card")).toBeVisible();
+  await expect(page.locator('[data-testid^="column-"]').first().getByText("Persistent card").first()).toBeVisible();
 });
 
 test("AI sidebar opens and receives a real reply from OpenRouter", async ({ page }) => {

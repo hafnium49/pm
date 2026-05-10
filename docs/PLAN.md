@@ -203,19 +203,19 @@ Extend the backend to accept conversation history + board state, and return a st
 Add a chat sidebar to the frontend that drives the AI endpoint and refreshes the board when the AI makes changes.
 
 ### Steps
-- [ ] Create `src/components/AIChatSidebar.tsx`: a collapsible right-side panel with:
+- [x] Create `src/components/AIChatSidebar.tsx`: a collapsible right-side panel with:
   - Message history (user and assistant bubbles)
   - Text input + Send button
   - Loading spinner while waiting for response
-- [ ] Sidebar state (open/closed, message history) lives in `KanbanBoard.tsx` or a context; keep it simple
-- [ ] On Send: POST to `/api/ai/chat` with the full message history; append assistant reply to history
-- [ ] If response contains `board_updates`, call the board `refresh()` function to re-fetch from `/api/board`
-- [ ] Style using existing CSS custom properties (no new color values)
-- [ ] Add a toggle button in the board header to open/close the sidebar
+- [x] Sidebar state (open/closed, message history) lives in `KanbanBoard.tsx` or a context; keep it simple
+- [x] On Send: POST to `/api/ai/chat` with the full message history; append assistant reply to history
+- [x] If response contains `board_updates`, call the board `refresh()` function to re-fetch from `/api/board`
+- [x] Style using existing CSS custom properties (no new color values)
+- [x] Add a toggle button in the board header to open/close the sidebar
 
 ### Tests & success criteria
-- [ ] Sidebar opens and closes via the toggle button
-- [ ] Sending a message shows a loading state, then the assistant reply
-- [ ] When the AI returns board updates, the board re-renders with the changes without a full page reload
-- [ ] Frontend unit tests cover: sending a message, receiving a reply, board refresh on update
-- [ ] Playwright e2e test: log in, open sidebar, type a message, verify a reply appears
+- [x] Sidebar opens and closes via the toggle button
+- [x] Sending a message shows a loading state, then the assistant reply
+- [x] When the AI returns board updates, the board re-renders with the changes without a full page reload
+- [x] Frontend unit tests cover: sending a message, receiving a reply, board refresh on update
+- [x] Playwright e2e test: log in, open sidebar, type a message, verify a reply appears

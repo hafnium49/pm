@@ -13,7 +13,7 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView?.({ behavior: "smooth" });
   }, [messages, loading]);
 
   const send = async () => {
