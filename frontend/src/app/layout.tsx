@@ -25,9 +25,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${displayFont.variable} ${bodyFont.variable}`}>
-        <header className="px-8 py-4">
-          <h1 className="font-display text-xl font-bold text-[var(--navy-dark)]">Kanban Studio</h1>
-        </header>
         {children}
       </body>
     </html>
