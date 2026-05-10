@@ -56,16 +56,21 @@ test("moves a card between columns", async ({ page }) => {
     throw new Error("Unable to resolve drag coordinates.");
   }
 
-  await page.mouse.move(
-    cardBox.x + cardBox.width / 2,
-    cardBox.y + cardBox.height / 2
-  );
+  const startX = cardBox.x + cardBox.width / 2;
+  const startY = cardBox.y + cardBox.height / 2;
+  const endX = columnBox.x + columnBox.width / 2;
+  const endY = columnBox.y + columnBox.height / 2;
+
+  await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await page.mouse.move(
-    columnBox.x + columnBox.width / 2,
-    columnBox.y + columnBox.height / 2,
-    { steps: 20 }
-  );
+  // Move enough to exceed the 6px activation constraint
+  for (let i = 1; i <= 30; i++) {
+    await page.mouse.move(
+      startX + ((endX - startX) * i) / 30,
+      startY + ((endY - startY) * i) / 30
+    );
+    await page.waitForTimeout(10);
+  }
   await page.mouse.up();
   await expect(targetColumn.getByTestId("card-card-1")).toBeVisible();
 });
