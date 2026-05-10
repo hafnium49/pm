@@ -34,24 +34,24 @@ Set up Docker infrastructure, FastAPI backend, and start/stop scripts. Goal: a "
 
 ---
 
-## Part 3: Add in Frontend
+## Part 3: Add in Frontend — COMPLETE
 
 Replace the hello-world static file with the statically exported Next.js app, served by FastAPI.
 
 ### Steps
-- [ ] Confirm `next.config.ts` has `output: 'export'` and `trailingSlash: true`; add/update if needed
-- [ ] Update `Dockerfile`: add a proper `frontend-build` stage that runs `npm ci && npm run build` and exports to `/app/out`
-- [ ] In the backend stage, copy `/app/out` from the frontend-build stage into `/app/static`
-- [ ] Ensure FastAPI mounts `StaticFiles` at `/` with `html=True` so Next.js routing works, and that `/api/*` routes are still reachable
-- [ ] Run `npm run build` inside the container at image-build time; no pre-built files committed to repo
+- [x] Confirm `next.config.ts` has `output: 'export'` and `trailingSlash: true`; add/update if needed
+- [x] Update `Dockerfile`: add a proper `frontend-build` stage that runs `npm ci && npm run build` and exports to `/app/out`
+- [x] In the backend stage, copy `/app/out` from the frontend-build stage into `/app/static`
+- [x] Ensure FastAPI mounts `StaticFiles` at `/` with `html=True` so Next.js routing works, and that `/api/*` routes are still reachable
+- [x] Run `npm run build` inside the container at image-build time; no pre-built files committed to repo
 
 ### Tests & success criteria
-- [ ] `docker compose up --build` completes without error
-- [ ] Browser at `http://localhost:8000/` shows the Kanban board (all 5 columns, sample cards)
-- [ ] Drag-and-drop works in the browser
-- [ ] `curl http://localhost:8000/api/health` still returns `{"status":"ok"}`
-- [ ] All existing frontend unit tests pass (`npm run test`)
-- [ ] Playwright e2e tests pass against the built app
+- [x] `docker compose up --build` completes without error
+- [x] Browser at `http://localhost:8000/` shows the Kanban board (all 5 columns, sample cards)
+- [x] Drag-and-drop works in the browser
+- [x] `curl http://localhost:8000/api/health` still returns `{"status":"ok"}`
+- [x] All existing frontend unit tests pass (`npm run test`)
+- [x] Playwright e2e tests pass against the built app
 
 ---
 
