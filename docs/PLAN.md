@@ -103,29 +103,29 @@ Cards and columns use an integer `position` field for ordering (avoids array joi
 
 ---
 
-## Part 6: Backend — Database + API
+## Part 6: Backend — Database + API — COMPLETE
 
 Implement the database layer and all Kanban API routes. The SQLite file lives at `/app/data/kanban.db`; it is created automatically on first run.
 
 ### Steps
-- [ ] Add `sqlalchemy` (async, with `aiosqlite`) to `pyproject.toml`
-- [ ] Create `backend/database.py`: async engine, `get_db` session dependency, `create_all` called on startup
-- [ ] Create `backend/models.py`: SQLAlchemy ORM models for `users`, `boards`, `columns`, `cards`
-- [ ] Seed the database on first run: create `user` account and an empty board with the 5 default columns
-- [ ] Create `backend/routers/board.py` with routes:
+- [x] Add `sqlalchemy` to `pyproject.toml`
+- [x] Create `backend/database.py`: sync engine, `get_db` session dependency, `create_all` called on startup
+- [x] Create `backend/models.py`: SQLAlchemy ORM models for `users`, `boards`, `columns`, `cards`
+- [x] Seed the database on first run: create `user` account and an empty board with the 5 default columns (`backend/seed.py`)
+- [x] Create `backend/routers/board.py` with routes:
   - `GET  /api/board` — returns full board for authenticated user (columns + cards in order)
   - `POST /api/board/columns/{col_id}/rename` — `{title: str}`
   - `POST /api/board/cards` — create card `{column_id, title, details}`
   - `DELETE /api/board/cards/{card_id}` — remove card
   - `POST /api/board/cards/{card_id}/move` — `{column_id, position}`
-- [ ] All routes require valid session (reuse auth dependency from Part 4)
-- [ ] Return consistent JSON matching the `BoardData` shape the frontend already uses
+- [x] All routes require valid session (reuse auth dependency from Part 4)
+- [x] Return consistent JSON matching the `BoardData` shape the frontend already uses
 
 ### Tests & success criteria
-- [ ] pytest suite covers all routes: happy path, unauthenticated (401), not-found (404)
-- [ ] Database is created from scratch if `/app/data/kanban.db` does not exist
-- [ ] All operations persist across a container restart (volume mount)
-- [ ] `GET /api/board` returns the 5 default columns for a fresh user
+- [x] pytest suite covers all routes: happy path, unauthenticated (401), not-found (404)
+- [x] Database is created from scratch if `/app/data/kanban.db` does not exist
+- [x] All operations persist across a container restart (volume mount)
+- [x] `GET /api/board` returns the 5 default columns for a fresh user
 
 ---
 
