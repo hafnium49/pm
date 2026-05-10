@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -24,7 +25,8 @@ export const KanbanBoard = () => {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
-    })
+    }),
+    useSensor(KeyboardSensor)
   );
 
   const cardsById = useMemo(() => board.cards, [board.cards]);

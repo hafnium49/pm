@@ -55,26 +55,26 @@ Replace the hello-world static file with the statically exported Next.js app, se
 
 ---
 
-## Part 4: Add in a fake user sign-in experience
+## Part 4: Add in a fake user sign-in experience — COMPLETE
 
 Protect the Kanban board behind a login screen. Credentials are hardcoded (`user` / `password`). No real auth library needed.
 
 ### Steps
-- [ ] Create `src/app/login/page.tsx`: form with username + password fields and a submit button
-- [ ] On submit, POST to `POST /api/auth/login` with `{username, password}`; backend validates hardcoded credentials and returns a session cookie (signed, HTTP-only, `SameSite=Strict`)
-- [ ] Add `POST /api/auth/login` and `POST /api/auth/logout` routes to FastAPI; use `itsdangerous` or similar for signing the cookie value
-- [ ] Add a middleware/dependency in FastAPI that rejects non-API routes except `/api/auth/*` when session cookie is absent — or handle auth purely on the frontend with a redirect
-- [ ] Frontend: on app load, call `GET /api/auth/me`; if 401, redirect to `/login`; if 200, show board
-- [ ] Add a "Log out" button in the board header that calls `POST /api/auth/logout` then redirects to `/login`
-- [ ] The session does not need to persist across container restarts for the MVP
+- [x] Create `src/app/login/page.tsx`: form with username + password fields and a submit button
+- [x] On submit, POST to `POST /api/auth/login` with `{username, password}`; backend validates hardcoded credentials and returns a session cookie (signed, HTTP-only, `SameSite=Strict`)
+- [x] Add `POST /api/auth/login` and `POST /api/auth/logout` routes to FastAPI; use `itsdangerous` or similar for signing the cookie value
+- [x] Add a middleware/dependency in FastAPI that rejects non-API routes except `/api/auth/*` when session cookie is absent — or handle auth purely on the frontend with a redirect
+- [x] Frontend: on app load, call `GET /api/auth/me`; if 401, redirect to `/login`; if 200, show board
+- [x] Add a "Log out" button in the board header that calls `POST /api/auth/logout` then redirects to `/login`
+- [x] The session does not need to persist across container restarts for the MVP
 
 ### Tests & success criteria
-- [ ] Visiting `http://localhost:8000/` without a session redirects to `/login`
-- [ ] Logging in with correct credentials (`user` / `password`) shows the board
-- [ ] Logging in with wrong credentials shows an error message; board is not shown
-- [ ] Logging out redirects back to `/login`
-- [ ] Backend unit tests cover: correct login, wrong password, wrong username, logout, `/me` authenticated, `/me` unauthenticated
-- [ ] Playwright e2e test covers the full login → board → logout flow
+- [x] Visiting `http://localhost:8000/` without a session redirects to `/login`
+- [x] Logging in with correct credentials (`user` / `password`) shows the board
+- [x] Logging in with wrong credentials shows an error message; board is not shown
+- [x] Logging out redirects back to `/login`
+- [x] Backend unit tests cover: correct login, wrong password, wrong username, logout, `/me` authenticated, `/me` unauthenticated
+- [x] Playwright e2e test covers the full login → board → logout flow
 
 ---
 
