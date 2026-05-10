@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Install Python dependencies via uv
 COPY backend/pyproject.toml ./
-RUN uv sync --no-install-project --no-dev
+RUN uv sync --no-install-project
 
 # Copy backend source
 COPY backend/ ./backend/

@@ -14,23 +14,23 @@
 Set up Docker infrastructure, FastAPI backend, and start/stop scripts. Goal: a "hello world" page served via the container, plus a working `/api/health` endpoint confirmed by a browser and an API call.
 
 ### Steps
-- [ ] Create `backend/main.py` with FastAPI app; add a `GET /api/health` route returning `{"status": "ok"}`
-- [ ] Create `backend/pyproject.toml` (uv-managed) declaring `fastapi` and `uvicorn` as dependencies
-- [ ] Create `Dockerfile` (multi-stage):
+- [x] Create `backend/main.py` with FastAPI app; add a `GET /api/health` route returning `{"status": "ok"}`
+- [x] Create `backend/pyproject.toml` (uv-managed) declaring `fastapi` and `uvicorn` as dependencies
+- [x] Create `Dockerfile` (multi-stage):
   - Stage 1 `frontend-build`: `node:22-slim`, copies frontend, runs `npm ci && npm run build` — **not needed yet** (placeholder stage for Part 3)
   - Stage 1 `backend`: `ghcr.io/astral-sh/uv` base, installs Python deps with `uv sync`, copies `backend/`, serves static files from a `/app/static` directory with FastAPI `StaticFiles`
   - For now, place a minimal `static/index.html` ("hello world") directly in the image
-- [ ] Create `docker-compose.yml`: single service `app`, port `8000:8000`, volume mount for SQLite at `/app/data`
-- [ ] Create `scripts/start.sh` (Linux/Mac) and `scripts/start.bat` (Windows): `docker compose up --build -d`
-- [ ] Create `scripts/stop.sh` and `scripts/stop.bat`: `docker compose down`
-- [ ] Update `backend/AGENTS.md` with description of backend structure
+- [x] Create `docker-compose.yml`: single service `app`, port `8000:8000`, volume mount for SQLite at `/app/data`
+- [x] Create `scripts/start.sh` (Linux/Mac) and `scripts/start.bat` (Windows): `docker compose up --build -d`
+- [x] Create `scripts/stop.sh` and `scripts/stop.bat`: `docker compose down`
+- [x] Update `backend/AGENTS.md` with description of backend structure
 
 ### Tests & success criteria
-- [ ] `docker compose up --build` completes without error
-- [ ] `curl http://localhost:8000/` returns the hello-world HTML
-- [ ] `curl http://localhost:8000/api/health` returns `{"status":"ok"}`
-- [ ] `docker compose down` stops and removes the container cleanly
-- [ ] Backend has at least one pytest unit test for the health route (using `httpx` + `TestClient`)
+- [x] `docker compose up --build` completes without error
+- [x] `curl http://localhost:8000/` returns the hello-world HTML
+- [x] `curl http://localhost:8000/api/health` returns `{"status":"ok"}`
+- [x] `docker compose down` stops and removes the container cleanly
+- [x] Backend has at least one pytest unit test for the health route (using `httpx` + `TestClient`)
 
 ---
 
