@@ -1,3 +1,8 @@
+import os
+import tempfile
+
+os.environ.setdefault("DATA_DIR", tempfile.mkdtemp(prefix="kanban-tests-"))
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine

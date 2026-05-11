@@ -26,7 +26,7 @@ class MoveCardBody(BaseModel):
 
 
 @router.get("/api/board")
-def get_board(
+def read_board(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
