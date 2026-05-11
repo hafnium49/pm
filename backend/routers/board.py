@@ -1,32 +1,13 @@
-from fastapi import APIRouter, Cookie, Depends, HTTPException
-from itsdangerous import BadSignature, SignatureExpired
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backend.auth import signer, COOKIE_NAME, MAX_AGE
+from backend.auth import require_auth
 from backend.database import get_db
-from backend.models import Board, KanbanCard, KanbanColumn, User
+from backend.deps import get_board
+from backend.models import KanbanCard, KanbanColumn
 
 router = APIRouter()
-
-
-def require_auth(session: str | None = Cookie(default=None)) -> str:
-    if not session:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    try:
-        return signer.unsign(session, max_age=MAX_AGE).decode()
-    except (BadSignature, SignatureExpired):
-        raise HTTPException(status_code=401, detail="Invalid or expired session")
-
-
-def _get_board(username: str, db: Session) -> Board:
-    user = db.query(User).filter_by(username=username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    board = db.query(Board).filter_by(user_id=user.id).first()
-    if not board:
-        raise HTTPException(status_code=404, detail="Board not found")
-    return board
 
 
 class RenameBody(BaseModel):
@@ -49,7 +30,7 @@ def get_board(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    board = _get_board(username, db)
+    board = get_board(username, db)
     columns = []
     cards = {}
     for col in sorted(board.columns, key=lambda c: c.position):
@@ -69,7 +50,7 @@ def rename_column(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    board = _get_board(username, db)
+    board = get_board(username, db)
     col = db.query(KanbanColumn).filter_by(id=col_id, board_id=board.id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
@@ -84,7 +65,7 @@ def create_card(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    board = _get_board(username, db)
+    board = get_board(username, db)
     col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
@@ -107,7 +88,7 @@ def delete_card(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    board = _get_board(username, db)
+    board = get_board(username, db)
     card = (
         db.query(KanbanCard)
         .join(KanbanColumn)
@@ -138,7 +119,7 @@ def move_card(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    board = _get_board(username, db)
+    board = get_board(username, db)
     card = (
         db.query(KanbanCard)
         .join(KanbanColumn)

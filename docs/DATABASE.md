@@ -5,7 +5,7 @@ SQLite file at `/app/data/kanban.db`, created automatically on first run. The `/
 ## Schema
 
 ### users
-Stores login credentials. `hashed_password` stores a bcrypt hash. Only one user (`user`) exists in the MVP but the table supports multiple.
+Stores login credentials. `hashed_password` stores a SHA-256 hash (hardcoded MVP credentials). Only one user (`user`) exists in the MVP but the table supports multiple.
 
 ### boards
 One board per user for the MVP. `user_id` is a foreign key to `users` with cascade delete.

@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, Cookie, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from itsdangerous import BadSignature, SignatureExpired, TimestampSigner
 from pydantic import BaseModel
 
@@ -40,12 +40,15 @@ def logout(response: Response):
     return {"ok": True}
 
 
-@router.get("/me")
-def me(session: str | None = Cookie(default=None)):
+def require_auth(session: str | None = Cookie(default=None)) -> str:
     if not session:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        username = signer.unsign(session, max_age=MAX_AGE).decode()
+        return signer.unsign(session, max_age=MAX_AGE).decode()
     except (BadSignature, SignatureExpired):
         raise HTTPException(status_code=401, detail="Invalid or expired session")
+
+
+@router.get("/me")
+def me(username: str = Depends(require_auth)):
     return {"username": username}

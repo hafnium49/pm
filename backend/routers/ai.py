@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from backend.ai import chat, chat_json
 from backend.database import get_db
 from backend.models import Board, KanbanCard, KanbanColumn
-from backend.routers.board import require_auth, _get_board
+from backend.auth import require_auth
+from backend.deps import get_board
 
 router = APIRouter(prefix="/api/ai")
 
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/ai")
 # ---------- ping ----------
 
 @router.get("/ping")
-async def ping():
+async def ping(username: str = Depends(require_auth)):
     reply = await chat([{"role": "user", "content": "What is 2+2? Reply with just the number."}])
     return {"reply": reply}
 
@@ -80,13 +81,24 @@ def _apply_updates(updates: list[CardUpdate], board: Board, db: Session) -> None
             if not card:
                 continue
             if u.delete:
+                col_id = card.column_id
                 db.delete(card)
+                db.flush()
+                remaining = (
+                    db.query(KanbanCard)
+                    .filter_by(column_id=col_id)
+                    .order_by(KanbanCard.position)
+                    .all()
+                )
+                for i, c in enumerate(remaining):
+                    c.position = i
             else:
                 if u.title is not None:
                     card.title = u.title
                 if u.details is not None:
                     card.details = u.details
                 if u.column_id is not None and int(u.column_id) != card.column_id:
+                    old_col_id = card.column_id
                     new_col = db.query(KanbanColumn).filter_by(
                         id=int(u.column_id), board_id=board.id
                     ).first()
@@ -96,6 +108,15 @@ def _apply_updates(updates: list[CardUpdate], board: Board, db: Session) -> None
                             (c.position for c in new_col.cards if c.id != card.id), default=-1
                         )
                         card.position = max_pos + 1
+                        db.flush()
+                        old_cards = (
+                            db.query(KanbanCard)
+                            .filter_by(column_id=old_col_id)
+                            .order_by(KanbanCard.position)
+                            .all()
+                        )
+                        for i, c in enumerate(old_cards):
+                            c.position = i
     db.commit()
 
 
@@ -105,7 +126,7 @@ async def ai_chat(
     username: str = Depends(require_auth),
     db: Session = Depends(get_db),
 ):
-    board = _get_board(username, db)
+    board = get_board(username, db)
     system_content = (
         "You are an AI assistant for a Kanban board app.\n\n"
         f"Current board state:\n{_board_snapshot(board)}\n\n"

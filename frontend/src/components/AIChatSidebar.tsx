@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import clsx from "clsx";
 import { sendChatMessage, type ChatMessage } from "@/lib/api";
 
 interface Props {
@@ -38,62 +39,22 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
     }
   };
 
+  const disabled = loading || !input.trim();
+
   return (
     <aside
       data-testid="ai-sidebar"
-      style={{
-        position: "fixed",
-        right: 0,
-        top: 0,
-        bottom: 0,
-        width: "320px",
-        zIndex: 40,
-        display: "flex",
-        flexDirection: "column",
-        background: "rgba(255,255,255,0.97)",
-        borderLeft: "1px solid var(--stroke)",
-        boxShadow: "-4px 0 24px rgba(0,0,0,0.10)",
-      }}
+      className="fixed right-0 top-0 bottom-0 z-40 flex w-80 flex-col bg-white/97 border-l border-[var(--stroke)] shadow-[-4px_0_24px_rgba(0,0,0,0.10)]"
     >
-      <div
-        style={{
-          borderBottom: "1px solid var(--stroke)",
-          padding: "16px 20px",
-        }}
-      >
-        <h2
-          style={{
-            margin: 0,
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "var(--navy-dark)",
-          }}
-        >
+      <div className="border-b border-[var(--stroke)] px-5 py-4">
+        <h2 className="m-0 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--navy-dark)]">
           AI Assistant
         </h2>
       </div>
 
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "16px",
-          display: "flex",
-          flexDirection: "column",
-          gap: "10px",
-        }}
-      >
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-4">
         {messages.length === 0 && !loading && (
-          <p
-            style={{
-              textAlign: "center",
-              marginTop: "40px",
-              fontSize: "13px",
-              color: "var(--gray-text)",
-            }}
-          >
+          <p className="mt-10 text-center text-[13px] text-[var(--gray-text)]">
             Ask the AI to add, move, or edit cards.
           </p>
         )}
@@ -102,16 +63,7 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
             <div
               key={i}
               data-testid="ai-message-user"
-              style={{
-                alignSelf: "flex-end",
-                maxWidth: "80%",
-                background: "var(--primary-blue)",
-                color: "#fff",
-                borderRadius: "16px 16px 4px 16px",
-                padding: "10px 14px",
-                fontSize: "13px",
-                lineHeight: 1.5,
-              }}
+              className="self-end max-w-[80%] rounded-[16px_16px_4px_16px] bg-[var(--primary-blue)] px-3.5 py-2.5 text-[13px] leading-normal text-white"
             >
               {m.content}
             </div>
@@ -119,16 +71,7 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
             <div
               key={i}
               data-testid="ai-message-assistant"
-              style={{
-                alignSelf: "flex-start",
-                maxWidth: "80%",
-                background: "var(--surface)",
-                color: "var(--navy-dark)",
-                borderRadius: "16px 16px 16px 4px",
-                padding: "10px 14px",
-                fontSize: "13px",
-                lineHeight: 1.5,
-              }}
+              className="self-start max-w-[80%] rounded-[16px_16px_16px_4px] bg-[var(--surface)] px-3.5 py-2.5 text-[13px] leading-normal text-[var(--navy-dark)]"
             >
               {m.content}
             </div>
@@ -137,15 +80,7 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
         {loading && (
           <div
             data-testid="ai-thinking"
-            style={{
-              alignSelf: "flex-start",
-              maxWidth: "80%",
-              background: "var(--surface)",
-              color: "var(--gray-text)",
-              borderRadius: "16px 16px 16px 4px",
-              padding: "10px 14px",
-              fontSize: "13px",
-            }}
+            className="self-start max-w-[80%] rounded-[16px_16px_16px_4px] bg-[var(--surface)] px-3.5 py-2.5 text-[13px] text-[var(--gray-text)]"
           >
             Thinking…
           </div>
@@ -153,14 +88,7 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
         <div ref={bottomRef} />
       </div>
 
-      <div
-        style={{
-          borderTop: "1px solid var(--stroke)",
-          padding: "12px 16px",
-          display: "flex",
-          gap: "8px",
-        }}
-      >
+      <div className="flex gap-2 border-t border-[var(--stroke)] px-4 py-3">
         <input
           aria-label="Message to AI"
           placeholder="Ask the AI…"
@@ -173,32 +101,15 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
             }
           }}
           disabled={loading}
-          style={{
-            flex: 1,
-            borderRadius: "20px",
-            border: "1px solid var(--stroke)",
-            background: "var(--surface)",
-            padding: "8px 16px",
-            fontSize: "13px",
-            color: "var(--navy-dark)",
-            outline: "none",
-          }}
+          className="flex-1 rounded-[20px] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-2 text-[13px] text-[var(--navy-dark)] outline-none"
         />
         <button
           onClick={send}
-          disabled={loading || !input.trim()}
-          style={{
-            borderRadius: "20px",
-            background: "var(--purple-secondary)",
-            color: "#fff",
-            border: "none",
-            padding: "8px 18px",
-            fontSize: "13px",
-            fontWeight: 600,
-            cursor: loading || !input.trim() ? "not-allowed" : "pointer",
-            opacity: loading || !input.trim() ? 0.5 : 1,
-            transition: "opacity 0.2s",
-          }}
+          disabled={disabled}
+          className={clsx(
+            "rounded-[20px] border-none bg-[var(--secondary-purple)] px-[18px] py-2 text-[13px] font-semibold text-white transition-opacity duration-200",
+            disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer opacity-100"
+          )}
         >
           Send
         </button>
