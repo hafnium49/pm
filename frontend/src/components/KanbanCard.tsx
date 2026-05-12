@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import type { Card, Priority } from "@/lib/kanban";
-import { CalendarIcon, TrashIcon } from "@/components/icons";
+import { CalendarIcon, CommentIcon, TrashIcon } from "@/components/icons";
 import { LABEL_CHIP_CLASS } from "@/components/labelColors";
 
 type KanbanCardProps = {
@@ -107,18 +107,32 @@ export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
               {card.details}
             </p>
           )}
-          {due && (
-            <div
-              className={clsx(
-                "mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                status === "overdue" && "bg-red-50 text-red-700",
-                status === "today" && "bg-amber-50 text-amber-700",
-                status === "upcoming" && "bg-[var(--surface)] text-[var(--gray-text)]"
+          {(due || (card.comment_count ?? 0) > 0) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {due && (
+                <span
+                  className={clsx(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    status === "overdue" && "bg-red-50 text-red-700",
+                    status === "today" && "bg-amber-50 text-amber-700",
+                    status === "upcoming" && "bg-[var(--surface)] text-[var(--gray-text)]"
+                  )}
+                  title={`Due ${due}${status === "overdue" ? " (overdue)" : status === "today" ? " (today)" : ""}`}
+                >
+                  <CalendarIcon width={11} height={11} />
+                  {formatDue(due)}
+                </span>
               )}
-              title={`Due ${due}${status === "overdue" ? " (overdue)" : status === "today" ? " (today)" : ""}`}
-            >
-              <CalendarIcon width={11} height={11} />
-              {formatDue(due)}
+              {(card.comment_count ?? 0) > 0 && (
+                <span
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--gray-text)]"
+                  data-testid="comment-count"
+                  title={`${card.comment_count} comments`}
+                >
+                  <CommentIcon width={11} height={11} />
+                  {card.comment_count}
+                </span>
+              )}
             </div>
           )}
         </div>

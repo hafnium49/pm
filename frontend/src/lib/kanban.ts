@@ -29,6 +29,15 @@ export type Card = {
   priority?: Priority;
   due_date?: string | null;
   labels?: Label[];
+  comment_count?: number;
+};
+
+export type Comment = {
+  id: string;
+  body: string;
+  author_id: string;
+  author_username: string;
+  created_at: string;
 };
 
 export type Column = {

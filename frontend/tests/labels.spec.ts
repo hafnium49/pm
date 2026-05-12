@@ -25,7 +25,8 @@ test("create a label from inside the modal and attach it to a card", async ({ pa
   await registerAndOpen(page, "lbl1");
   await addCard(page, "Refactor API");
   await page.getByText("Refactor API").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("dialog", { name: /card details/i }).waitFor();
+  await page.getByRole("button", { name: /manage labels/i }).click();
 
   await page.getByRole("button", { name: /new label/i }).click();
   await page.getByPlaceholder("Label name").fill("Bug");
@@ -45,7 +46,7 @@ test("toggling an existing label on and off updates the card chips", async ({ pa
   await addCard(page, "Triage");
   // Open card and create a label
   await page.getByText("Triage").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
   await page.getByRole("button", { name: /new label/i }).click();
   await page.getByPlaceholder("Label name").fill("Feature");
   await page.getByRole("button", { name: /^add$/i }).click();
@@ -54,7 +55,7 @@ test("toggling an existing label on and off updates the card chips", async ({ pa
 
   // Re-open, toggle off
   await page.getByText("Triage").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
   await page.getByRole("checkbox", { name: /toggle feature/i }).click();
   await expect(page.getByTestId(/modal-label-/)).toHaveCount(0);
   await page.keyboard.press("Escape");
@@ -67,7 +68,7 @@ test("renaming a label updates the chip on the card", async ({ page }) => {
 
   // Open card, create + attach label
   await page.getByText("Doc").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
   await page.getByRole("button", { name: /new label/i }).click();
   await page.getByPlaceholder("Label name").fill("Docs");
   await page.getByRole("button", { name: /^add$/i }).click();
@@ -76,9 +77,9 @@ test("renaming a label updates the chip on the card", async ({ page }) => {
 
   // Re-open, rename it
   await page.getByText("Doc").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
   // Reveal pencil button on the row
-  await page.getByRole("button", { name: /toggle docs/i }).hover();
+  await page.getByRole("checkbox", { name: /toggle docs/i }).hover();
   await page.getByRole("button", { name: /rename docs/i }).click();
   // First input in the picker dialog is the rename input
   await page.getByRole("dialog", { name: /label picker/i }).getByRole("textbox").first().fill("Writing");
@@ -92,7 +93,7 @@ test("deleting a label removes it from the card", async ({ page }) => {
   await registerAndOpen(page, "lbl4");
   await addCard(page, "DelLabel");
   await page.getByText("DelLabel").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
   await page.getByRole("button", { name: /new label/i }).click();
   await page.getByPlaceholder("Label name").fill("Junk");
   await page.getByRole("button", { name: /^add$/i }).click();
@@ -101,8 +102,8 @@ test("deleting a label removes it from the card", async ({ page }) => {
 
   page.once("dialog", (d) => d.accept());
   await page.getByText("DelLabel").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
-  await page.getByRole("button", { name: /toggle junk/i }).hover();
+  await page.getByRole("button", { name: /manage labels/i }).click();
+  await page.getByRole("checkbox", { name: /toggle junk/i }).hover();
   await page.getByRole("button", { name: /delete junk/i }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId(/card-label-/)).toHaveCount(0);
@@ -112,7 +113,7 @@ test("labels created on one board don't appear on another", async ({ page }) => 
   await registerAndOpen(page, "lbl5");
   await addCard(page, "OnBoardA");
   await page.getByText("OnBoardA").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
   await page.getByRole("button", { name: /new label/i }).click();
   await page.getByPlaceholder("Label name").fill("OnlyA");
   await page.getByRole("button", { name: /^add$/i }).click();
@@ -127,7 +128,7 @@ test("labels created on one board don't appear on another", async ({ page }) => 
   // Add a card and open its modal
   await addCard(page, "OnBoardB");
   await page.getByText("OnBoardB").first().click();
-  await page.getByRole("button", { name: /add labels/i }).click();
+  await page.getByRole("button", { name: /manage labels/i }).click();
 
   // Picker shows no labels (board B is empty); creating same name is OK
   await expect(page.getByText(/no labels yet/i)).toBeVisible();

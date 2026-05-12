@@ -35,6 +35,9 @@ const mockCreateLabel = vi.fn();
 const mockUpdateLabel = vi.fn();
 const mockDeleteLabel = vi.fn();
 const mockSetCardLabels = vi.fn();
+const mockListComments = vi.fn();
+const mockCreateComment = vi.fn();
+const mockDeleteComment = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   listBoards: (...a: unknown[]) => mockListBoards(...a),
@@ -53,6 +56,9 @@ vi.mock("@/lib/api", () => ({
   updateLabel: (...a: unknown[]) => mockUpdateLabel(...a),
   deleteLabel: (...a: unknown[]) => mockDeleteLabel(...a),
   setCardLabels: (...a: unknown[]) => mockSetCardLabels(...a),
+  listComments: (...a: unknown[]) => mockListComments(...a),
+  createComment: (...a: unknown[]) => mockCreateComment(...a),
+  deleteComment: (...a: unknown[]) => mockDeleteComment(...a),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
@@ -78,9 +84,21 @@ beforeEach(() => {
   mockUpdateLabel.mockReset();
   mockDeleteLabel.mockReset();
   mockSetCardLabels.mockReset();
+  mockListComments.mockReset();
+  mockCreateComment.mockReset();
+  mockDeleteComment.mockReset();
   mockListLabels.mockResolvedValue([]);
   mockSetCardLabels.mockResolvedValue([]);
   mockCreateLabel.mockResolvedValue({ id: "10", name: "Bug", color: "red" });
+  mockListComments.mockResolvedValue([]);
+  mockCreateComment.mockResolvedValue({
+    id: "1",
+    body: "ok",
+    author_id: "1",
+    author_username: "user",
+    created_at: new Date().toISOString(),
+  });
+  mockDeleteComment.mockResolvedValue(undefined);
 
   mockListBoards.mockResolvedValue([...SUMMARIES]);
   mockFetchBoardById.mockResolvedValue(makeBoard("1", "My Board", true));
@@ -287,6 +305,56 @@ describe("Labels integration", () => {
     await waitFor(() =>
       expect(mockSetCardLabels).toHaveBeenCalledWith("1", "1-c1", ["10"])
     );
+  });
+});
+
+describe("Comments integration", () => {
+  it("loads comments when the modal opens", async () => {
+    mockListComments.mockResolvedValueOnce([
+      {
+        id: "c1",
+        body: "looks good",
+        author_id: "1",
+        author_username: "user",
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    render(<KanbanBoard />);
+    const card = await screen.findByTestId("card-1-c1");
+    await userEvent.click(card);
+    await screen.findByRole("dialog");
+    expect(await screen.findByText("looks good")).toBeInTheDocument();
+    expect(mockListComments).toHaveBeenCalledWith("1", "1-c1");
+  });
+
+  it("posts a new comment via createComment", async () => {
+    mockListComments.mockResolvedValue([]);
+    mockCreateComment.mockResolvedValueOnce({
+      id: "c1",
+      body: "hello there",
+      author_id: "1",
+      author_username: "user",
+      created_at: new Date().toISOString(),
+    });
+    render(<KanbanBoard />);
+    const card = await screen.findByTestId("card-1-c1");
+    await userEvent.click(card);
+    await screen.findByRole("dialog");
+    const textarea = screen.getByLabelText(/new comment/i);
+    await userEvent.type(textarea, "hello there");
+    await userEvent.click(screen.getByRole("button", { name: /^comment$/i }));
+    await waitFor(() =>
+      expect(mockCreateComment).toHaveBeenCalledWith("1", "1-c1", "hello there")
+    );
+    expect(await screen.findByText("hello there")).toBeInTheDocument();
+  });
+
+  it("shows empty placeholder when card has no comments", async () => {
+    mockListComments.mockResolvedValue([]);
+    render(<KanbanBoard />);
+    const card = await screen.findByTestId("card-1-c1");
+    await userEvent.click(card);
+    expect(await screen.findByText(/no comments yet/i)).toBeInTheDocument();
   });
 });
 

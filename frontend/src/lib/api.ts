@@ -1,4 +1,4 @@
-import type { BoardData, Card, Label, LabelColor, Priority } from "@/lib/kanban";
+import type { BoardData, Card, Comment, Label, LabelColor, Priority } from "@/lib/kanban";
 
 export type CardUpdate = {
   title?: string;
@@ -192,6 +192,40 @@ export async function setCardLabels(
   });
   if (!r.ok) throw new Error("Failed to update card labels");
   return (await r.json()).labels as Label[];
+}
+
+// ---------- Comments ----------
+
+export async function listComments(boardId: string, cardId: string): Promise<Comment[]> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}/comments`);
+  if (!r.ok) throw new Error("Failed to load comments");
+  return (await r.json()).comments as Comment[];
+}
+
+export async function createComment(
+  boardId: string,
+  cardId: string,
+  body: string,
+): Promise<Comment> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}/comments`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ body }),
+  });
+  if (!r.ok) throw new Error("Failed to post comment");
+  return r.json();
+}
+
+export async function deleteComment(
+  boardId: string,
+  cardId: string,
+  commentId: string,
+): Promise<void> {
+  const r = await fetch(
+    `/api/boards/${boardId}/cards/${cardId}/comments/${commentId}`,
+    { method: "DELETE" },
+  );
+  if (!r.ok) throw new Error("Failed to delete comment");
 }
 
 // ---------- Legacy single-board API (kept for back-compat) ----------

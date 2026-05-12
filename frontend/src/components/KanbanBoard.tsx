@@ -18,7 +18,13 @@ import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
 import { BoardSwitcher } from "@/components/BoardSwitcher";
 import { CardDetailModal } from "@/components/CardDetailModal";
-import { moveCard as localMoveCard, type BoardData, type Label, type LabelColor } from "@/lib/kanban";
+import {
+  moveCard as localMoveCard,
+  type BoardData,
+  type Comment,
+  type Label,
+  type LabelColor,
+} from "@/lib/kanban";
 import * as api from "@/lib/api";
 import type { BoardSummary, CardUpdate } from "@/lib/api";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
@@ -38,6 +44,9 @@ export const KanbanBoard = () => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [postingComment, setPostingComment] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -66,6 +75,41 @@ export const KanbanBoard = () => {
     });
     setBoardLabels(labels);
   }, []);
+
+  // Identify the current user once for ownership checks (e.g. own comments)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          setCurrentUsername(data.username ?? null);
+        }
+      } catch {
+        // ignored — username is only used for UI affordances
+      }
+    })();
+  }, []);
+
+  // Load comments lazily when a card is opened
+  useEffect(() => {
+    if (!openCardId || !currentBoardId) {
+      setComments([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await api.listComments(currentBoardId, openCardId);
+        if (!cancelled) setComments(list);
+      } catch {
+        if (!cancelled) showError("Could not load comments.");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openCardId, currentBoardId, showError]);
 
   // Initial load: get boards, pick current, load it
   useEffect(() => {
@@ -125,6 +169,8 @@ export const KanbanBoard = () => {
         columns: created.columns,
         cards: created.cards,
       });
+      // Fresh board has no labels yet
+      setBoardLabels([]);
     } catch {
       showError("Failed to create board.");
     }
@@ -313,6 +359,51 @@ export const KanbanBoard = () => {
       });
     } catch {
       showError("Failed to delete label.");
+    }
+  };
+
+  const bumpCommentCount = (cardId: string, delta: number) => {
+    setBoard((prev) => {
+      if (!prev || !prev.cards[cardId]) return prev;
+      const c = prev.cards[cardId];
+      return {
+        ...prev,
+        cards: {
+          ...prev.cards,
+          [cardId]: {
+            ...c,
+            comment_count: Math.max(0, (c.comment_count ?? 0) + delta),
+          },
+        },
+      };
+    });
+  };
+
+  const handlePostComment = async (cardId: string, body: string) => {
+    if (!currentBoardId) return;
+    setPostingComment(true);
+    try {
+      const created = await api.createComment(currentBoardId, cardId, body);
+      setComments((prev) => [...prev, created]);
+      bumpCommentCount(cardId, 1);
+    } catch {
+      showError("Failed to post comment.");
+    } finally {
+      setPostingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (cardId: string, commentId: string) => {
+    if (!currentBoardId) return;
+    const prevComments = comments;
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    bumpCommentCount(cardId, -1);
+    try {
+      await api.deleteComment(currentBoardId, cardId, commentId);
+    } catch {
+      setComments(prevComments);
+      bumpCommentCount(cardId, 1);
+      showError("Failed to delete comment.");
     }
   };
 
@@ -520,6 +611,9 @@ export const KanbanBoard = () => {
           open
           card={board.cards[openCardId]}
           boardLabels={boardLabels}
+          comments={comments}
+          postingComment={postingComment}
+          currentUsername={currentUsername}
           onSave={(update) => handleUpdateCard(openCardId, update)}
           onDelete={async () => {
             const card = board.cards[openCardId];
@@ -531,6 +625,8 @@ export const KanbanBoard = () => {
           onCreateLabel={handleCreateLabel}
           onRenameLabel={handleRenameLabel}
           onDeleteLabel={handleDeleteLabel}
+          onPostComment={(body) => handlePostComment(openCardId, body)}
+          onDeleteComment={(commentId) => handleDeleteComment(openCardId, commentId)}
         />
       )}
     </div>

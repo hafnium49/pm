@@ -28,6 +28,14 @@ class RenameColumnBody(BaseModel):
     title: str = Field(min_length=1, max_length=128)
 
 
+class AddColumnBody(BaseModel):
+    title: str = Field(min_length=1, max_length=128)
+
+
+class ReorderColumnsBody(BaseModel):
+    column_ids: list[int] = Field(min_length=1)
+
+
 class CreateCardBody(BaseModel):
     column_id: int
     title: str = Field(min_length=1, max_length=256)
@@ -61,6 +69,7 @@ def _serialize_card(card: KanbanCard) -> dict:
             {"id": str(label.id), "name": label.name, "color": label.color}
             for label in (card.labels or [])
         ],
+        "comment_count": len(card.comments or []),
     }
 
 
@@ -140,6 +149,72 @@ def delete_board(
     if remaining <= 1:
         raise HTTPException(status_code=400, detail="Cannot delete your only board")
     db.delete(board)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/{board_id}/columns")
+def add_column(
+    board_id: int,
+    body: AddColumnBody,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    board = get_owned_board(board_id, user, db)
+    max_pos = max((c.position for c in board.columns), default=-1)
+    col = KanbanColumn(board_id=board.id, title=body.title.strip(), position=max_pos + 1)
+    db.add(col)
+    db.commit()
+    db.refresh(col)
+    return {"id": str(col.id), "title": col.title, "cardIds": []}
+
+
+@router.delete("/{board_id}/columns/{col_id}")
+def delete_column(
+    board_id: int,
+    col_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    board = get_owned_board(board_id, user, db)
+    col = db.query(KanbanColumn).filter_by(id=col_id, board_id=board.id).first()
+    if not col:
+        raise HTTPException(status_code=404, detail="Column not found")
+    if len(board.columns) <= 1:
+        raise HTTPException(status_code=400, detail="A board must have at least one column")
+    db.delete(col)
+    db.flush()
+    # Compact positions
+    remaining = (
+        db.query(KanbanColumn)
+        .filter_by(board_id=board.id)
+        .order_by(KanbanColumn.position)
+        .all()
+    )
+    for i, c in enumerate(remaining):
+        c.position = i
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/{board_id}/columns/reorder")
+def reorder_columns(
+    board_id: int,
+    body: ReorderColumnsBody,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    board = get_owned_board(board_id, user, db)
+    existing_ids = {c.id for c in board.columns}
+    submitted_ids = list(body.column_ids)
+    if set(submitted_ids) != existing_ids or len(submitted_ids) != len(existing_ids):
+        raise HTTPException(
+            status_code=400,
+            detail="column_ids must be a complete permutation of the board's columns",
+        )
+    by_id = {c.id: c for c in board.columns}
+    for i, cid in enumerate(submitted_ids):
+        by_id[cid].position = i
     db.commit()
     return {"ok": True}
 

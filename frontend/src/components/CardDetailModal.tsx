@@ -2,15 +2,19 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import clsx from "clsx";
-import type { Card, Label, LabelColor, Priority } from "@/lib/kanban";
+import type { Card, Comment, Label, LabelColor, Priority } from "@/lib/kanban";
 import { CalendarIcon, CloseIcon, FlagIcon, TrashIcon } from "@/components/icons";
 import { LabelPicker } from "@/components/LabelPicker";
 import { LABEL_CHIP_CLASS } from "@/components/labelColors";
+import { CommentsSection } from "@/components/CommentsSection";
 
 type Props = {
   card: Card;
   open: boolean;
   boardLabels: Label[];
+  comments: Comment[];
+  postingComment: boolean;
+  currentUsername: string | null;
   onSave: (update: {
     title?: string;
     details?: string;
@@ -24,6 +28,8 @@ type Props = {
   onCreateLabel: (name: string, color: LabelColor) => Promise<Label | null>;
   onRenameLabel: (labelId: string, name: string, color: LabelColor) => Promise<void>;
   onDeleteLabel: (labelId: string) => Promise<void>;
+  onPostComment: (body: string) => Promise<void>;
+  onDeleteComment: (commentId: string) => Promise<void>;
 };
 
 const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
@@ -36,6 +42,9 @@ export const CardDetailModal = ({
   card,
   open,
   boardLabels,
+  comments,
+  postingComment,
+  currentUsername,
   onSave,
   onDelete,
   onClose,
@@ -43,6 +52,8 @@ export const CardDetailModal = ({
   onCreateLabel,
   onRenameLabel,
   onDeleteLabel,
+  onPostComment,
+  onDeleteComment,
 }: Props) => {
   const [title, setTitle] = useState(card.title);
   const [details, setDetails] = useState(card.details);
@@ -116,7 +127,7 @@ export const CardDetailModal = ({
     >
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-lg overflow-hidden rounded-2xl border border-[var(--stroke)] bg-white shadow-[var(--shadow)]"
+        className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--stroke)] bg-white shadow-[var(--shadow)]"
       >
         <header className="flex items-center justify-between gap-3 border-b border-[var(--stroke)] px-5 py-3">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--gray-text)]">
@@ -132,7 +143,7 @@ export const CardDetailModal = ({
           </button>
         </header>
 
-        <div className="space-y-4 px-5 py-4">
+        <div className="space-y-4 overflow-y-auto px-5 py-4">
           <div>
             <label htmlFor="card-title" className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--gray-text)]">
               Title
@@ -253,6 +264,14 @@ export const CardDetailModal = ({
               </div>
             </div>
           </div>
+
+          <CommentsSection
+            comments={comments}
+            currentUsername={currentUsername}
+            posting={postingComment}
+            onPost={onPostComment}
+            onDelete={onDeleteComment}
+          />
         </div>
 
         <footer className="flex items-center justify-between gap-3 border-t border-[var(--stroke)] bg-[var(--surface)] px-5 py-3">

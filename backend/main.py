@@ -8,6 +8,7 @@ from backend.auth import router as auth_router
 from backend.routers.board import router as board_router
 from backend.routers.boards import router as boards_router
 from backend.routers.labels import router as labels_router
+from backend.routers.comments import router as comments_router
 from backend.routers.ai import router as ai_router
 
 
@@ -28,6 +29,7 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(auth_router)
 app.include_router(boards_router)
 app.include_router(labels_router)
+app.include_router(comments_router)
 app.include_router(board_router)
 app.include_router(ai_router)
 

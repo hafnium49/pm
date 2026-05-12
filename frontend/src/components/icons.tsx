@@ -100,3 +100,9 @@ export const FlagIcon = (props: IconProps) => (
     <path d="M5 4h11l-2 4 2 4H5" />
   </svg>
 );
+
+export const CommentIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M21 12a8 8 0 1 1-3.07-6.31L21 4l-1 4.32A8 8 0 0 1 21 12z" />
+  </svg>
+);

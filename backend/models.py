@@ -1,5 +1,11 @@
-from sqlalchemy import Column, Date, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, relationship
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Base(DeclarativeBase):
@@ -81,6 +87,12 @@ class KanbanCard(Base):
         back_populates="cards",
         order_by="Label.id",
     )
+    comments = relationship(
+        "Comment",
+        back_populates="card",
+        cascade="all, delete-orphan",
+        order_by="Comment.created_at",
+    )
 
 
 class Label(Base):
@@ -94,3 +106,16 @@ class Label(Base):
 
     board = relationship("Board", back_populates="labels")
     cards = relationship("KanbanCard", secondary=card_labels, back_populates="labels")
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    body = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=_utcnow)
+
+    card = relationship("KanbanCard", back_populates="comments")
+    author = relationship("User")
