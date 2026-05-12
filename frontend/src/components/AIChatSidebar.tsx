@@ -2,12 +2,14 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { sendChatMessage, type ChatMessage } from "@/lib/api";
+import { CloseIcon, SendIcon, SparkleIcon } from "@/components/icons";
 
 interface Props {
   onRefresh: () => Promise<void>;
+  onClose: () => void;
 }
 
-export const AIChatSidebar = ({ onRefresh }: Props) => {
+export const AIChatSidebar = ({ onRefresh, onClose }: Props) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,12 +46,23 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
   return (
     <aside
       data-testid="ai-sidebar"
-      className="fixed right-0 top-0 bottom-0 z-40 flex w-80 flex-col bg-white/97 border-l border-[var(--stroke)] shadow-[-4px_0_24px_rgba(0,0,0,0.10)]"
+      className="flex h-screen w-80 shrink-0 flex-col border-l border-[var(--stroke)] bg-white/97 shadow-[-4px_0_24px_rgba(0,0,0,0.06)]"
     >
-      <div className="border-b border-[var(--stroke)] px-5 py-4">
-        <h2 className="m-0 text-[11px] font-bold uppercase tracking-[0.2em] text-[var(--navy-dark)]">
-          AI Assistant
-        </h2>
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--stroke)] px-4 py-3">
+        <div className="inline-flex items-center gap-2 text-[var(--navy-dark)]">
+          <SparkleIcon className="text-[var(--secondary-purple)]" />
+          <h2 className="m-0 text-[11px] font-bold uppercase tracking-[0.2em]">
+            AI Assistant
+          </h2>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close AI assistant"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[var(--gray-text)] transition hover:bg-[var(--surface)] hover:text-[var(--navy-dark)]"
+        >
+          <CloseIcon width={14} height={14} />
+        </button>
       </div>
 
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-4">
@@ -88,7 +101,7 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
         <div ref={bottomRef} />
       </div>
 
-      <div className="flex gap-2 border-t border-[var(--stroke)] px-4 py-3">
+      <div className="flex items-center gap-2 border-t border-[var(--stroke)] px-3 py-3">
         <input
           aria-label="Message to AI"
           placeholder="Ask the AI…"
@@ -101,17 +114,19 @@ export const AIChatSidebar = ({ onRefresh }: Props) => {
             }
           }}
           disabled={loading}
-          className="flex-1 rounded-[20px] border border-[var(--stroke)] bg-[var(--surface)] px-4 py-2 text-[13px] text-[var(--navy-dark)] outline-none"
+          className="flex-1 rounded-full border border-[var(--stroke)] bg-[var(--surface)] px-4 py-2 text-[13px] text-[var(--navy-dark)] outline-none focus:border-[var(--primary-blue)]"
         />
         <button
           onClick={send}
           disabled={disabled}
+          aria-label="Send"
+          name="Send"
           className={clsx(
-            "rounded-[20px] border-none bg-[var(--secondary-purple)] px-[18px] py-2 text-[13px] font-semibold text-white transition-opacity duration-200",
-            disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer opacity-100"
+            "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--secondary-purple)] text-white transition",
+            disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer hover:brightness-110"
           )}
         >
-          Send
+          <SendIcon width={16} height={16} />
         </button>
       </div>
     </aside>
