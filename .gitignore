@@ -174,3 +174,5 @@ cython_debug/
 
 .DS_Store
 
+# Frontend static export copied here when serving without Docker (Dockerfile generates it inside the image)
+/static/
