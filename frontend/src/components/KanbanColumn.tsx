@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Card, Column } from "@/lib/kanban";
@@ -29,25 +28,21 @@ export const KanbanColumn = ({
   onDeleteColumn,
   onOpenCard,
 }: KanbanColumnProps) => {
-  const { setNodeRef: setDroppableRef, isOver } = useDroppable({
-    id: `col-${column.id}`,
-    data: { type: "column-drop", columnId: column.id },
-  });
+  // The column is both a droppable target for cards AND a sortable item among columns.
+  // `useSortable` registers an underlying droppable with the same id, so cards can still
+  // drop here (existing handleDragEnd treats over.id == column.id as "drop in this column").
   const {
     attributes,
     listeners,
-    setNodeRef: setSortableRef,
+    setNodeRef,
     transform,
     transition,
     isDragging,
+    isOver,
   } = useSortable({
     id: column.id,
     data: { type: "column" },
   });
-  const setRefs = (node: HTMLElement | null) => {
-    setSortableRef(node);
-    setDroppableRef(node);
-  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -78,11 +73,11 @@ export const KanbanColumn = ({
 
   return (
     <section
-      ref={setRefs}
+      ref={setNodeRef}
       style={style}
       className={clsx(
         "flex min-h-[520px] flex-col rounded-2xl border border-[var(--stroke)] bg-[var(--surface-strong)] p-3 shadow-[0_8px_20px_rgba(3,33,71,0.06)] transition",
-        isOver && "border-[var(--accent-yellow)] ring-2 ring-[var(--accent-yellow)]/40",
+        isOver && !isDragging && "border-[var(--accent-yellow)] ring-2 ring-[var(--accent-yellow)]/40",
         isDragging && "opacity-60"
       )}
       data-testid={`column-${column.id}`}
@@ -94,8 +89,6 @@ export const KanbanColumn = ({
           className="inline-flex h-6 w-5 items-center justify-center rounded text-[var(--gray-text)] opacity-0 transition hover:text-[var(--navy-dark)] focus:opacity-100 group-hover:opacity-100"
           {...attributes}
           {...listeners}
-          // Prevent the column-drag handle from triggering text-cursor on the title input
-          onClick={(e) => e.preventDefault()}
         >
           <GripIcon width={14} height={14} />
         </button>
