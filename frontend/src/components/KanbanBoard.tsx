@@ -14,10 +14,12 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
+import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { KanbanColumn } from "@/components/KanbanColumn";
 import { KanbanCardPreview } from "@/components/KanbanCardPreview";
 import { BoardSwitcher } from "@/components/BoardSwitcher";
 import { CardDetailModal } from "@/components/CardDetailModal";
+import { AddColumnTile } from "@/components/AddColumnTile";
 import {
   moveCard as localMoveCard,
   type BoardData,
