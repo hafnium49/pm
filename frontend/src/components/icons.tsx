@@ -107,6 +107,19 @@ export const CommentIcon = (props: IconProps) => (
   </svg>
 );
 
+export const SearchIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="M20 20l-3.5-3.5" />
+  </svg>
+);
+
+export const FilterIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M3 5h18l-7 9v6l-4-2v-4z" />
+  </svg>
+);
+
 export const GripIcon = (props: IconProps) => (
   <svg {...base} aria-hidden="true" {...props}>
     <circle cx="9" cy="5" r="1.2" />

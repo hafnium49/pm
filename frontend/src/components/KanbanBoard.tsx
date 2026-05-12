@@ -30,7 +30,14 @@ import {
 import * as api from "@/lib/api";
 import type { BoardSummary, CardUpdate } from "@/lib/api";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
+import { FilterBar } from "@/components/FilterBar";
 import { LogOutIcon, SparkleIcon } from "@/components/icons";
+import {
+  cardMatches,
+  emptyFilter,
+  isFilterActive,
+  type CardFilter,
+} from "@/lib/cardFilter";
 
 const CURRENT_BOARD_STORAGE_KEY = "kanban.currentBoardId";
 
@@ -49,6 +56,7 @@ export const KanbanBoard = () => {
   const [comments, setComments] = useState<Comment[]>([]);
   const [postingComment, setPostingComment] = useState(false);
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [filter, setFilter] = useState<CardFilter>(emptyFilter);
   const [loaded, setLoaded] = useState(false);
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -153,6 +161,7 @@ export const KanbanBoard = () => {
   const handleSwitchBoard = async (boardId: string) => {
     if (boardId === currentBoardId) return;
     setCurrentBoardId(boardId);
+    setFilter(emptyFilter);
     try {
       await loadBoard(boardId);
     } catch {
@@ -225,6 +234,20 @@ export const KanbanBoard = () => {
     const activeId = active.id as string;
     const overId = over.id as string;
 
+    // Column reorder branch — active item is a column (data.type === "column")
+    if (active.data.current?.type === "column") {
+      const ids = board.columns.map((c) => c.id);
+      const fromIdx = ids.indexOf(activeId);
+      const toIdx = ids.indexOf(overId);
+      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+      const nextIds = [...ids];
+      const [moved] = nextIds.splice(fromIdx, 1);
+      nextIds.splice(toIdx, 0, moved);
+      handleReorderColumns(nextIds);
+      return;
+    }
+
+    // Card move branch
     const nextColumns = localMoveCard(board.columns, activeId, overId);
     const targetCol = nextColumns.find((c) => c.cardIds.includes(activeId));
     if (!targetCol) return;
@@ -237,6 +260,75 @@ export const KanbanBoard = () => {
       showError("Failed to move card.");
       setBoard(prevBoard);
     });
+  };
+
+  const handleAddColumn = async (title: string) => {
+    if (!board || !currentBoardId) return;
+    try {
+      const created = await api.addColumnOnBoard(currentBoardId, title);
+      setBoard((prev) =>
+        prev
+          ? {
+              ...prev,
+              columns: [
+                ...prev.columns,
+                { id: created.id, title: created.title, cardIds: created.cardIds },
+              ],
+            }
+          : prev,
+      );
+      setBoards((bs) =>
+        bs.map((b) =>
+          b.id === currentBoardId ? { ...b, column_count: b.column_count + 1 } : b
+        )
+      );
+    } catch {
+      showError("Failed to add column.");
+    }
+  };
+
+  const handleDeleteColumn = async (columnId: string) => {
+    if (!board || !currentBoardId) return;
+    const prevBoard = board;
+    const removedCardIds = board.columns.find((c) => c.id === columnId)?.cardIds ?? [];
+    setBoard({
+      ...board,
+      columns: board.columns.filter((c) => c.id !== columnId),
+      cards: Object.fromEntries(
+        Object.entries(board.cards).filter(([id]) => !removedCardIds.includes(id))
+      ),
+    });
+    setBoards((bs) =>
+      bs.map((b) =>
+        b.id === currentBoardId
+          ? {
+              ...b,
+              column_count: Math.max(0, b.column_count - 1),
+              card_count: Math.max(0, b.card_count - removedCardIds.length),
+            }
+          : b
+      )
+    );
+    try {
+      await api.deleteColumnOnBoard(currentBoardId, columnId);
+    } catch (e) {
+      setBoard(prevBoard);
+      showError(e instanceof Error ? e.message : "Failed to delete column.");
+    }
+  };
+
+  const handleReorderColumns = async (orderedIds: string[]) => {
+    if (!board || !currentBoardId) return;
+    const prevBoard = board;
+    const byId = new Map(board.columns.map((c) => [c.id, c]));
+    const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean) as typeof board.columns;
+    setBoard({ ...board, columns: reordered });
+    try {
+      await api.reorderColumnsOnBoard(currentBoardId, orderedIds);
+    } catch {
+      setBoard(prevBoard);
+      showError("Failed to reorder columns.");
+    }
   };
 
   const handleRenameColumn = (columnId: string, title: string) => {
@@ -488,6 +580,23 @@ export const KanbanBoard = () => {
   const activeCard = activeCardId ? cardsById[activeCardId] : null;
   const totalCards = board?.columns.reduce((sum, c) => sum + c.cardIds.length, 0) ?? 0;
 
+  const filteredColumns = useMemo(() => {
+    if (!board) return [] as { id: string; title: string; cardIds: string[] }[];
+    if (!isFilterActive(filter)) {
+      return board.columns;
+    }
+    const today = new Date();
+    return board.columns.map((col) => ({
+      ...col,
+      cardIds: col.cardIds.filter((cid) => {
+        const c = board.cards[cid];
+        return c ? cardMatches(c, filter, today) : false;
+      }),
+    }));
+  }, [board, filter]);
+
+  const matchingCards = filteredColumns.reduce((sum, c) => sum + c.cardIds.length, 0);
+
   if (!loaded) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
@@ -558,25 +667,42 @@ export const KanbanBoard = () => {
 
         <main className="relative z-0 flex-1 px-6 py-6">
           {board ? (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCorners}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
-              <section className="grid auto-rows-min items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                {board.columns.map((column) => (
-                  <KanbanColumn
-                    key={column.id}
-                    column={column}
-                    cards={column.cardIds.map((cardId) => board.cards[cardId]).filter(Boolean)}
-                    onRename={handleRenameColumn}
-                    onAddCard={handleAddCard}
-                    onDeleteCard={handleDeleteCard}
-                    onOpenCard={setOpenCardId}
-                  />
-                ))}
-              </section>
+            <>
+              <FilterBar
+                filter={filter}
+                onChange={setFilter}
+                onClear={() => setFilter(emptyFilter)}
+                boardLabels={boardLabels}
+                totalCards={totalCards}
+                matchingCards={matchingCards}
+              />
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              >
+                <section className="grid auto-rows-min items-start gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                  <SortableContext
+                    items={filteredColumns.map((c) => c.id)}
+                    strategy={horizontalListSortingStrategy}
+                  >
+                    {filteredColumns.map((column) => (
+                      <KanbanColumn
+                        key={column.id}
+                        column={column}
+                        cards={column.cardIds.map((cardId) => board.cards[cardId]).filter(Boolean)}
+                        canDelete={board.columns.length > 1}
+                        onRename={handleRenameColumn}
+                        onAddCard={handleAddCard}
+                        onDeleteCard={handleDeleteCard}
+                        onDeleteColumn={handleDeleteColumn}
+                        onOpenCard={setOpenCardId}
+                      />
+                    ))}
+                  </SortableContext>
+                  <AddColumnTile onAdd={handleAddColumn} />
+                </section>
               <DragOverlay>
                 {activeCard ? (
                   <div className="w-[260px]">

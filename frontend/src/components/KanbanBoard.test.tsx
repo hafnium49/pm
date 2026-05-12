@@ -38,6 +38,9 @@ const mockSetCardLabels = vi.fn();
 const mockListComments = vi.fn();
 const mockCreateComment = vi.fn();
 const mockDeleteComment = vi.fn();
+const mockAddColumnOnBoard = vi.fn();
+const mockDeleteColumnOnBoard = vi.fn();
+const mockReorderColumnsOnBoard = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   listBoards: (...a: unknown[]) => mockListBoards(...a),
@@ -59,6 +62,9 @@ vi.mock("@/lib/api", () => ({
   listComments: (...a: unknown[]) => mockListComments(...a),
   createComment: (...a: unknown[]) => mockCreateComment(...a),
   deleteComment: (...a: unknown[]) => mockDeleteComment(...a),
+  addColumnOnBoard: (...a: unknown[]) => mockAddColumnOnBoard(...a),
+  deleteColumnOnBoard: (...a: unknown[]) => mockDeleteColumnOnBoard(...a),
+  reorderColumnsOnBoard: (...a: unknown[]) => mockReorderColumnsOnBoard(...a),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
@@ -87,6 +93,12 @@ beforeEach(() => {
   mockListComments.mockReset();
   mockCreateComment.mockReset();
   mockDeleteComment.mockReset();
+  mockAddColumnOnBoard.mockReset();
+  mockDeleteColumnOnBoard.mockReset();
+  mockReorderColumnsOnBoard.mockReset();
+  mockAddColumnOnBoard.mockResolvedValue({ id: "100", title: "Blocked", cardIds: [] });
+  mockDeleteColumnOnBoard.mockResolvedValue(undefined);
+  mockReorderColumnsOnBoard.mockResolvedValue(undefined);
   mockListLabels.mockResolvedValue([]);
   mockSetCardLabels.mockResolvedValue([]);
   mockCreateLabel.mockResolvedValue({ id: "10", name: "Bug", color: "red" });
@@ -113,14 +125,14 @@ beforeEach(() => {
 });
 
 const getFirstColumn = async () => {
-  const cols = await screen.findAllByTestId(/column-/i);
+  const cols = await screen.findAllByTestId(/^column-/);
   return cols[0];
 };
 
 describe("KanbanBoard", () => {
   it("renders five columns after loading", async () => {
     render(<KanbanBoard />);
-    const cols = await screen.findAllByTestId(/column-/i);
+    const cols = await screen.findAllByTestId(/^column-/);
     expect(cols).toHaveLength(5);
     expect(mockListBoards).toHaveBeenCalled();
     expect(mockFetchBoardById).toHaveBeenCalledWith("1");
@@ -168,7 +180,7 @@ describe("BoardSwitcher integration", () => {
 
   it("lists boards in the dropdown", async () => {
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     await userEvent.click(screen.getByRole("button", { name: /switch board/i }));
     const listbox = await screen.findByRole("listbox");
     expect(within(listbox).getByText("My Board")).toBeInTheDocument();
@@ -180,7 +192,7 @@ describe("BoardSwitcher integration", () => {
       .mockResolvedValueOnce(makeBoard("1", "My Board", true))
       .mockResolvedValueOnce(makeBoard("2", "Project Phoenix"));
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     await userEvent.click(screen.getByRole("button", { name: /switch board/i }));
     const listbox = await screen.findByRole("listbox");
     await userEvent.click(within(listbox).getByRole("option", { name: /Project Phoenix/i }));
@@ -200,7 +212,7 @@ describe("BoardSwitcher integration", () => {
         { id: "3", name: "Q2 Goals", column_count: 5, card_count: 0 },
       ]);
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     await userEvent.click(screen.getByRole("button", { name: /switch board/i }));
     await userEvent.click(screen.getByRole("button", { name: /new board/i }));
     await userEvent.type(screen.getByPlaceholderText(/board name/i), "Q2 Goals");
@@ -213,7 +225,7 @@ describe("BoardSwitcher integration", () => {
       .mockResolvedValueOnce(makeBoard("1", "My Board", true))
       .mockResolvedValueOnce(makeBoard("2", "Project Phoenix"));
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     await userEvent.click(screen.getByRole("button", { name: /switch board/i }));
     const listbox = await screen.findByRole("listbox");
     await userEvent.click(within(listbox).getByRole("option", { name: /Project Phoenix/i }));
@@ -262,7 +274,7 @@ describe("CardDetailModal integration", () => {
 describe("Labels integration", () => {
   it("renders no chips when card has no labels", async () => {
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     expect(screen.queryByTestId(/card-label-/)).not.toBeInTheDocument();
   });
 
@@ -289,7 +301,7 @@ describe("Labels integration", () => {
       },
     });
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     expect(await screen.findByTestId("card-label-10")).toHaveTextContent("Bug");
   });
 
@@ -358,10 +370,63 @@ describe("Comments integration", () => {
   });
 });
 
+describe("Columns CRUD", () => {
+  it("renders the AddColumnTile and creates a new column", async () => {
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    await userEvent.click(screen.getByTestId("add-column-button"));
+    const input = screen.getByLabelText(/column name/i);
+    await userEvent.type(input, "Blocked");
+    await userEvent.click(screen.getByRole("button", { name: /^add$/i }));
+    await waitFor(() =>
+      expect(mockAddColumnOnBoard).toHaveBeenCalledWith("1", "Blocked")
+    );
+    expect(await screen.findByTestId("column-100")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Blocked")).toBeInTheDocument();
+  });
+
+  it("delete button is disabled when only one column remains", async () => {
+    mockFetchBoardById.mockResolvedValueOnce({
+      id: "1",
+      name: "My Board",
+      columns: [{ id: "1-1", title: "Only", cardIds: [] }],
+      cards: {},
+    });
+    render(<KanbanBoard />);
+    await screen.findByTestId("column-1-1");
+    const btn = screen.getByRole("button", { name: /delete column only/i });
+    expect(btn).toBeDisabled();
+  });
+
+  it("deleting a column calls deleteColumnOnBoard and removes it from the board", async () => {
+    // Provide a fresh response that includes a deletable column besides the default 5
+    mockFetchBoardById.mockResolvedValueOnce({
+      id: "1",
+      name: "My Board",
+      columns: [
+        { id: "1-1", title: "Backlog", cardIds: [] },
+        { id: "1-2", title: "Discovery", cardIds: [] },
+      ],
+      cards: {},
+    });
+    const original = window.confirm;
+    window.confirm = () => true;
+    try {
+      render(<KanbanBoard />);
+      await screen.findByTestId("column-1-1");
+      await userEvent.click(screen.getByRole("button", { name: /delete column backlog/i }));
+      await waitFor(() => expect(mockDeleteColumnOnBoard).toHaveBeenCalledWith("1", "1-1"));
+      await waitFor(() => expect(screen.queryByTestId("column-1-1")).not.toBeInTheDocument());
+    } finally {
+      window.confirm = original;
+    }
+  });
+});
+
 describe("AI chat sidebar", () => {
   it("toggles open and closed via the AI button", async () => {
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     expect(screen.queryByTestId("ai-sidebar")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
     expect(screen.getByTestId("ai-sidebar")).toBeInTheDocument();
@@ -371,7 +436,7 @@ describe("AI chat sidebar", () => {
 
   it("sends a message with the current board id", async () => {
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
     await userEvent.type(screen.getByLabelText(/message to ai/i), "Hello");
     await userEvent.click(screen.getByRole("button", { name: /send/i }));
@@ -387,7 +452,7 @@ describe("AI chat sidebar", () => {
       board_updates: [{ id: null, column_id: "1-1", title: "AI card", details: "", delete: false }],
     });
     render(<KanbanBoard />);
-    await screen.findAllByTestId(/column-/i);
+    await screen.findAllByTestId(/^column-/);
     await userEvent.click(screen.getByRole("button", { name: /toggle ai assistant/i }));
     await userEvent.type(screen.getByLabelText(/message to ai/i), "Add a card");
     await userEvent.click(screen.getByRole("button", { name: /send/i }));
