@@ -5,23 +5,19 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.ai import chat, chat_json
+from backend.auth import require_user
 from backend.database import get_db
-from backend.models import Board, KanbanCard, KanbanColumn
-from backend.auth import require_auth
-from backend.deps import get_board
+from backend.deps import get_default_board, get_owned_board
+from backend.models import Board, KanbanCard, KanbanColumn, User
 
 router = APIRouter(prefix="/api/ai")
 
 
-# ---------- ping ----------
-
 @router.get("/ping")
-async def ping(username: str = Depends(require_auth)):
+async def ping(user: User = Depends(require_user)):
     reply = await chat([{"role": "user", "content": "What is 2+2? Reply with just the number."}])
     return {"reply": reply}
 
-
-# ---------- chat ----------
 
 class MessageIn(BaseModel):
     role: str
@@ -30,6 +26,7 @@ class MessageIn(BaseModel):
 
 class ChatRequest(BaseModel):
     messages: list[MessageIn]
+    board_id: int | None = None
 
 
 class CardUpdate(BaseModel):
@@ -123,10 +120,14 @@ def _apply_updates(updates: list[CardUpdate], board: Board, db: Session) -> None
 @router.post("/chat", response_model=AIChatResponse)
 async def ai_chat(
     body: ChatRequest,
-    username: str = Depends(require_auth),
+    user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_board(username, db)
+    board = (
+        get_owned_board(body.board_id, user, db)
+        if body.board_id is not None
+        else get_default_board(user, db)
+    )
     system_content = (
         "You are an AI assistant for a Kanban board app.\n\n"
         f"Current board state:\n{_board_snapshot(board)}\n\n"
