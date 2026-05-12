@@ -85,6 +85,44 @@ export async function renameColumnOnBoard(
   if (!r.ok) throw new Error("Failed to rename column");
 }
 
+export async function addColumnOnBoard(
+  boardId: string,
+  title: string,
+): Promise<{ id: string; title: string; cardIds: string[] }> {
+  const r = await fetch(`/api/boards/${boardId}/columns`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  if (!r.ok) throw new Error("Failed to add column");
+  return r.json();
+}
+
+export async function deleteColumnOnBoard(
+  boardId: string,
+  colId: string,
+): Promise<void> {
+  const r = await fetch(`/api/boards/${boardId}/columns/${colId}`, {
+    method: "DELETE",
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to delete column");
+  }
+}
+
+export async function reorderColumnsOnBoard(
+  boardId: string,
+  columnIds: string[],
+): Promise<void> {
+  const r = await fetch(`/api/boards/${boardId}/columns/reorder`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ column_ids: columnIds.map((id) => Number(id)) }),
+  });
+  if (!r.ok) throw new Error("Failed to reorder columns");
+}
+
 export async function createCardOnBoard(
   boardId: string,
   columnId: string,

@@ -106,3 +106,14 @@ export const CommentIcon = (props: IconProps) => (
     <path d="M21 12a8 8 0 1 1-3.07-6.31L21 4l-1 4.32A8 8 0 0 1 21 12z" />
   </svg>
 );
+
+export const GripIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <circle cx="9" cy="5" r="1.2" />
+    <circle cx="9" cy="12" r="1.2" />
+    <circle cx="9" cy="19" r="1.2" />
+    <circle cx="15" cy="5" r="1.2" />
+    <circle cx="15" cy="12" r="1.2" />
+    <circle cx="15" cy="19" r="1.2" />
+  </svg>
+);
