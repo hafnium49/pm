@@ -1,0 +1,109 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - alert [ref=e2]
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - banner [ref=e5]:
+        - generic [ref=e6]:
+          - heading "Kanban Studio" [level=1] [ref=e7]
+          - button "Switch board" [ref=e9]:
+            - img [ref=e10]
+            - generic [ref=e12]: My Board
+            - img [ref=e13]
+          - generic [ref=e15]: 1 card
+        - generic [ref=e16]:
+          - button "Toggle AI assistant" [ref=e17]:
+            - img [ref=e18]
+            - generic [ref=e21]: AI
+          - button "Log out" [ref=e22]:
+            - img [ref=e23]
+      - main [ref=e26]:
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - generic [ref=e29]:
+              - textbox "Column title" [ref=e31]: Backlog
+              - generic [ref=e32]: "1"
+            - button "Medium priority Triage Delete Triage" [ref=e34] [cursor=pointer]:
+              - generic [ref=e35]:
+                - generic "Medium priority" [ref=e36]
+                - heading "Triage" [level=4] [ref=e38]
+              - button "Delete Triage" [ref=e39]:
+                - img [ref=e40]
+            - button "Add a card" [ref=e44]:
+              - img [ref=e45]
+              - text: Add a card
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - textbox "Column title" [ref=e49]: Discovery
+              - generic [ref=e50]: "0"
+            - generic [ref=e52]: Drop a card here
+            - button "Add a card" [ref=e54]:
+              - img [ref=e55]
+              - text: Add a card
+          - generic [ref=e56]:
+            - generic [ref=e57]:
+              - textbox "Column title" [ref=e59]: In Progress
+              - generic [ref=e60]: "0"
+            - generic [ref=e62]: Drop a card here
+            - button "Add a card" [ref=e64]:
+              - img [ref=e65]
+              - text: Add a card
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - textbox "Column title" [ref=e69]: Review
+              - generic [ref=e70]: "0"
+            - generic [ref=e72]: Drop a card here
+            - button "Add a card" [ref=e74]:
+              - img [ref=e75]
+              - text: Add a card
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - textbox "Column title" [ref=e79]: Done
+              - generic [ref=e80]: "0"
+            - generic [ref=e82]: Drop a card here
+            - button "Add a card" [ref=e84]:
+              - img [ref=e85]
+              - text: Add a card
+        - status [ref=e86]
+    - dialog "Card details" [ref=e87]:
+      - generic [ref=e88]:
+        - banner [ref=e89]:
+          - heading "Card details" [level=2] [ref=e90]
+          - button "Close" [ref=e91]:
+            - img [ref=e92]
+        - generic [ref=e95]:
+          - generic [ref=e96]:
+            - generic [ref=e97]: Title
+            - textbox "Title" [active] [ref=e98]: Triage
+          - generic [ref=e99]:
+            - generic [ref=e100]: Description
+            - textbox "Description" [ref=e101]
+          - generic [ref=e102]:
+            - generic [ref=e103]: Labels
+            - button "Manage labels" [ref=e106]:
+              - img [ref=e107]
+              - text: Add labels
+          - generic [ref=e108]:
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - img [ref=e111]
+                - text: Priority
+              - radiogroup "Priority" [ref=e113]:
+                - radio "Low" [ref=e114]
+                - radio "Medium" [checked] [ref=e115]
+                - radio "High" [ref=e116]
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - img [ref=e119]
+                - text: Due date
+              - textbox "Due date" [ref=e122]
+        - contentinfo [ref=e123]:
+          - button "Delete" [ref=e124]:
+            - img [ref=e125]
+            - text: Delete
+          - generic [ref=e128]:
+            - button "Cancel" [ref=e129]
+            - button "Save" [ref=e130]
+```

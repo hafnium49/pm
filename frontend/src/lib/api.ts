@@ -1,4 +1,12 @@
-import type { BoardData, Card } from "@/lib/kanban";
+import type { BoardData, Card, Label, LabelColor, Priority } from "@/lib/kanban";
+
+export type CardUpdate = {
+  title?: string;
+  details?: string;
+  priority?: Priority;
+  due_date?: string | null;
+  clear_due_date?: boolean;
+};
 
 export type BoardSummary = {
   id: string;
@@ -112,6 +120,78 @@ export async function moveCardOnBoard(
     body: JSON.stringify({ column_id: Number(columnId), position }),
   });
   if (!r.ok) throw new Error("Failed to move card");
+}
+
+export async function updateCardOnBoard(
+  boardId: string,
+  cardId: string,
+  update: CardUpdate,
+): Promise<Card> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update),
+  });
+  if (!r.ok) throw new Error("Failed to update card");
+  return r.json();
+}
+
+// ---------- Labels ----------
+
+export async function listLabels(boardId: string): Promise<Label[]> {
+  const r = await fetch(`/api/boards/${boardId}/labels`);
+  if (!r.ok) throw new Error("Failed to load labels");
+  return (await r.json()).labels as Label[];
+}
+
+export async function createLabel(
+  boardId: string,
+  name: string,
+  color: LabelColor,
+): Promise<Label> {
+  const r = await fetch(`/api/boards/${boardId}/labels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, color }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to create label");
+  }
+  return r.json();
+}
+
+export async function updateLabel(
+  boardId: string,
+  labelId: string,
+  update: { name?: string; color?: LabelColor },
+): Promise<Label> {
+  const r = await fetch(`/api/boards/${boardId}/labels/${labelId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(update),
+  });
+  if (!r.ok) throw new Error("Failed to update label");
+  return r.json();
+}
+
+export async function deleteLabel(boardId: string, labelId: string): Promise<void> {
+  const r = await fetch(`/api/boards/${boardId}/labels/${labelId}`, { method: "DELETE" });
+  if (!r.ok) throw new Error("Failed to delete label");
+}
+
+export async function setCardLabels(
+  boardId: string,
+  cardId: string,
+  labelIds: string[],
+): Promise<Label[]> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}/labels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ label_ids: labelIds.map((id) => Number(id)) }),
+  });
+  if (!r.ok) throw new Error("Failed to update card labels");
+  return (await r.json()).labels as Label[];
 }
 
 // ---------- Legacy single-board API (kept for back-compat) ----------

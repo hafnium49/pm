@@ -3,6 +3,9 @@
 These endpoints operate on the user's default (oldest) board so the existing
 frontend keeps working unchanged. New code should use /api/boards/{id}/...
 """
+from datetime import date
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -11,7 +14,9 @@ from backend.auth import require_user
 from backend.database import get_db
 from backend.deps import get_default_board
 from backend.models import KanbanCard, KanbanColumn, User
-from backend.routers.boards import _board_full
+from backend.routers.boards import _board_full, _serialize_card
+
+Priority = Literal["low", "medium", "high"]
 
 router = APIRouter()
 
@@ -24,6 +29,8 @@ class CreateCardBody(BaseModel):
     column_id: int
     title: str = Field(min_length=1, max_length=256)
     details: str = ""
+    priority: Priority = "medium"
+    due_date: date | None = None
 
 
 class MoveCardBody(BaseModel):
@@ -69,12 +76,14 @@ def create_card(
         column_id=col.id,
         title=body.title.strip(),
         details=body.details,
+        priority=body.priority,
+        due_date=body.due_date,
         position=max_pos + 1,
     )
     db.add(card)
     db.commit()
     db.refresh(card)
-    return {"id": str(card.id), "title": card.title, "details": card.details}
+    return _serialize_card(card)
 
 
 @router.delete("/api/board/cards/{card_id}")

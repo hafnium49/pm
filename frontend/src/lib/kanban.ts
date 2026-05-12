@@ -1,7 +1,34 @@
+export type Priority = "low" | "medium" | "high";
+
+export type LabelColor =
+  | "slate"
+  | "red"
+  | "amber"
+  | "lime"
+  | "emerald"
+  | "cyan"
+  | "blue"
+  | "violet"
+  | "fuchsia"
+  | "pink";
+
+export type Label = {
+  id: string;
+  name: string;
+  color: LabelColor;
+};
+
+export const LABEL_COLORS: LabelColor[] = [
+  "slate", "red", "amber", "lime", "emerald", "cyan", "blue", "violet", "fuchsia", "pink",
+];
+
 export type Card = {
   id: string;
   title: string;
   details: string;
+  priority?: Priority;
+  due_date?: string | null;
+  labels?: Label[];
 };
 
 export type Column = {

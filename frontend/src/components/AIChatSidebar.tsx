@@ -5,11 +5,12 @@ import { sendChatMessage, type ChatMessage } from "@/lib/api";
 import { CloseIcon, SendIcon, SparkleIcon } from "@/components/icons";
 
 interface Props {
+  boardId: string | null;
   onRefresh: () => Promise<void>;
   onClose: () => void;
 }
 
-export const AIChatSidebar = ({ onRefresh, onClose }: Props) => {
+export const AIChatSidebar = ({ boardId, onRefresh, onClose }: Props) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -28,7 +29,7 @@ export const AIChatSidebar = ({ onRefresh, onClose }: Props) => {
     setInput("");
     setLoading(true);
     try {
-      const res = await sendChatMessage(next);
+      const res = await sendChatMessage(next, boardId ?? undefined);
       setMessages([...next, { role: "assistant", content: res.message }]);
       if (res.board_updates.length > 0) await onRefresh();
     } catch {

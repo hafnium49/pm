@@ -1,3 +1,6 @@
+from datetime import date
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -10,6 +13,7 @@ from backend.models import Board, KanbanCard, KanbanColumn, User
 router = APIRouter(prefix="/api/boards")
 
 DEFAULT_COLUMNS = ["Backlog", "Discovery", "In Progress", "Review", "Done"]
+Priority = Literal["low", "medium", "high"]
 
 
 class CreateBoardBody(BaseModel):
@@ -28,11 +32,36 @@ class CreateCardBody(BaseModel):
     column_id: int
     title: str = Field(min_length=1, max_length=256)
     details: str = ""
+    priority: Priority = "medium"
+    due_date: date | None = None
+
+
+class UpdateCardBody(BaseModel):
+    """Partial update; any field set to None is left untouched."""
+    title: str | None = Field(default=None, min_length=1, max_length=256)
+    details: str | None = None
+    priority: Priority | None = None
+    due_date: date | None = None
+    clear_due_date: bool = False
 
 
 class MoveCardBody(BaseModel):
     column_id: int
     position: int
+
+
+def _serialize_card(card: KanbanCard) -> dict:
+    return {
+        "id": str(card.id),
+        "title": card.title,
+        "details": card.details,
+        "priority": card.priority or "medium",
+        "due_date": card.due_date.isoformat() if card.due_date else None,
+        "labels": [
+            {"id": str(label.id), "name": label.name, "color": label.color}
+            for label in (card.labels or [])
+        ],
+    }
 
 
 def _board_summary(board: Board) -> dict:
@@ -50,9 +79,8 @@ def _board_full(board: Board) -> dict:
     for col in sorted(board.columns, key=lambda c: c.position):
         card_ids = []
         for card in sorted(col.cards, key=lambda c: c.position):
-            card_id = str(card.id)
-            card_ids.append(card_id)
-            cards[card_id] = {"id": card_id, "title": card.title, "details": card.details}
+            card_ids.append(str(card.id))
+            cards[str(card.id)] = _serialize_card(card)
         columns.append({"id": str(col.id), "title": col.title, "cardIds": card_ids})
     return {"id": str(board.id), "name": board.name, "columns": columns, "cards": cards}
 
@@ -149,12 +177,46 @@ def create_card(
         column_id=col.id,
         title=body.title.strip(),
         details=body.details,
+        priority=body.priority,
+        due_date=body.due_date,
         position=max_pos + 1,
     )
     db.add(card)
     db.commit()
     db.refresh(card)
-    return {"id": str(card.id), "title": card.title, "details": card.details}
+    return _serialize_card(card)
+
+
+@router.post("/{board_id}/cards/{card_id}")
+def update_card(
+    board_id: int,
+    card_id: int,
+    body: UpdateCardBody,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    board = get_owned_board(board_id, user, db)
+    card = (
+        db.query(KanbanCard)
+        .join(KanbanColumn)
+        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
+        .first()
+    )
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    if body.title is not None:
+        card.title = body.title.strip()
+    if body.details is not None:
+        card.details = body.details
+    if body.priority is not None:
+        card.priority = body.priority
+    if body.clear_due_date:
+        card.due_date = None
+    elif body.due_date is not None:
+        card.due_date = body.due_date
+    db.commit()
+    db.refresh(card)
+    return _serialize_card(card)
 
 
 @router.delete("/{board_id}/cards/{card_id}")

@@ -57,3 +57,46 @@ export const SendIcon = (props: IconProps) => (
     <path d="M4 12l16-8-6 18-2-8-8-2z" />
   </svg>
 );
+
+export const ChevronDownIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M6 9l6 6 6-6" />
+  </svg>
+);
+
+export const CheckIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M5 12l5 5L20 7" />
+  </svg>
+);
+
+export const PencilIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M4 20h4l10-10-4-4L4 16v4z" />
+    <path d="M13 6l4 4" />
+  </svg>
+);
+
+export const BoardIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M9 4v16" />
+    <path d="M15 4v16" />
+  </svg>
+);
+
+export const CalendarIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M3 10h18" />
+    <path d="M8 3v4" />
+    <path d="M16 3v4" />
+  </svg>
+);
+
+export const FlagIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M5 21V4" />
+    <path d="M5 4h11l-2 4 2 4H5" />
+  </svg>
+);
