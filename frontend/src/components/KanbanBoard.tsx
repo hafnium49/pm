@@ -703,14 +703,15 @@ export const KanbanBoard = () => {
                   </SortableContext>
                   <AddColumnTile onAdd={handleAddColumn} />
                 </section>
-              <DragOverlay>
-                {activeCard ? (
-                  <div className="w-[260px]">
-                    <KanbanCardPreview card={activeCard} />
-                  </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+                <DragOverlay>
+                  {activeCard ? (
+                    <div className="w-[260px]">
+                      <KanbanCardPreview card={activeCard} />
+                    </div>
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
+            </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
               <p className="text-sm text-[var(--gray-text)]">
