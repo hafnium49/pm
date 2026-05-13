@@ -2,7 +2,9 @@ import os
 from typing import Generator
 
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
+
+from backend.models import Base
 
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{DATA_DIR}/kanban.db")
@@ -12,7 +14,7 @@ SessionLocal = sessionmaker(bind=engine)
 
 
 # Lightweight migrations for SQLite. Each entry is (table, column, ddl_clause).
-# These run idempotently after create_all to upgrade pre-existing dev databases.
+# Runs idempotently after create_all to upgrade pre-existing dev databases.
 _PENDING_MIGRATIONS: list[tuple[str, str, str]] = [
     ("cards", "priority", "VARCHAR NOT NULL DEFAULT 'medium'"),
     ("cards", "due_date", "DATE"),
@@ -40,7 +42,6 @@ def _apply_sqlite_migrations() -> None:
 
 
 def create_tables() -> None:
-    from backend.models import Base
     os.makedirs(DATA_DIR, exist_ok=True)
     Base.metadata.create_all(engine)
     _apply_sqlite_migrations()

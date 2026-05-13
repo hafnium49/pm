@@ -729,29 +729,18 @@ export const KanbanBoard = () => {
     if (!board || !currentBoardId) return;
     const prevBoard = board;
     // Optimistic local update for fields we know how to render
-    setBoard({
-      ...board,
-      cards: {
-        ...board.cards,
-        [cardId]: {
-          ...board.cards[cardId],
-          ...(update.title !== undefined ? { title: update.title } : {}),
-          ...(update.details !== undefined ? { details: update.details } : {}),
-          ...(update.priority !== undefined ? { priority: update.priority } : {}),
-          ...(update.clear_due_date
-            ? { due_date: null }
-            : update.due_date !== undefined
-            ? { due_date: update.due_date }
-            : {}),
-        },
-      },
-    });
+    const existing = board.cards[cardId];
+    const optimistic = { ...existing };
+    if (update.title !== undefined) optimistic.title = update.title;
+    if (update.details !== undefined) optimistic.details = update.details;
+    if (update.priority !== undefined) optimistic.priority = update.priority;
+    if (update.clear_due_date) optimistic.due_date = null;
+    else if (update.due_date !== undefined) optimistic.due_date = update.due_date;
+
+    setBoard({ ...board, cards: { ...board.cards, [cardId]: optimistic } });
     try {
       const updated = await api.updateCardOnBoard(currentBoardId, cardId, update);
-      setBoard((prev) => {
-        if (!prev) return prev;
-        return { ...prev, cards: { ...prev.cards, [cardId]: updated } };
-      });
+      setBoard((prev) => (prev ? { ...prev, cards: { ...prev.cards, [cardId]: updated } } : prev));
     } catch {
       showError("Failed to update card.");
       setBoard(prevBoard);
