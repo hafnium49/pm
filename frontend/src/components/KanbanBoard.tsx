@@ -801,21 +801,21 @@ export const KanbanBoard = () => {
   const activeCard = activeCardId && board ? board.cards[activeCardId] : null;
   const totalCards = board?.columns.reduce((sum, c) => sum + c.cardIds.length, 0) ?? 0;
 
-  const filterActive = isFilterActive(filter);
-  const filteredColumns = !board
-    ? []
-    : !filterActive
-    ? board.columns
-    : (() => {
-        const today = new Date();
-        return board.columns.map((col) => ({
-          ...col,
-          cardIds: col.cardIds.filter((cid) => {
-            const c = board.cards[cid];
-            return c ? cardMatches(c, filter, today) : false;
-          }),
-        }));
-      })();
+  let filteredColumns: ActiveBoard["columns"] = [];
+  if (board) {
+    if (!isFilterActive(filter)) {
+      filteredColumns = board.columns;
+    } else {
+      const today = new Date();
+      filteredColumns = board.columns.map((col) => ({
+        ...col,
+        cardIds: col.cardIds.filter((cid) => {
+          const c = board.cards[cid];
+          return c ? cardMatches(c, filter, today) : false;
+        }),
+      }));
+    }
+  }
 
   const matchingCards = filteredColumns.reduce((sum, c) => sum + c.cardIds.length, 0);
   const currentRole: BoardRole =

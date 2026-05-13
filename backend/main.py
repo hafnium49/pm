@@ -1,41 +1,41 @@
-from contextlib import asynccontextmanager
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from backend.auth import router as auth_router
+from backend.database import SessionLocal, create_tables
+from backend.routers.ai import router as ai_router
 from backend.routers.board import router as board_router
 from backend.routers.boards import router as boards_router
-from backend.routers.labels import router as labels_router
-from backend.routers.comments import router as comments_router
-from backend.routers.members import router as members_router
 from backend.routers.checklist import router as checklist_router
-from backend.routers.ai import router as ai_router
+from backend.routers.comments import router as comments_router
+from backend.routers.labels import router as labels_router
+from backend.routers.members import router as members_router
+from backend.seed import seed_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    from backend.database import SessionLocal, create_tables
-    from backend.seed import seed_db
     create_tables()
-    db = SessionLocal()
-    try:
+    with SessionLocal() as db:
         seed_db(db)
-    finally:
-        db.close()
     yield
 
 
 app = FastAPI(lifespan=lifespan)
-app.include_router(auth_router)
-app.include_router(boards_router)
-app.include_router(labels_router)
-app.include_router(comments_router)
-app.include_router(members_router)
-app.include_router(checklist_router)
-app.include_router(board_router)
-app.include_router(ai_router)
+for r in (
+    auth_router,
+    boards_router,
+    labels_router,
+    comments_router,
+    members_router,
+    checklist_router,
+    board_router,
+    ai_router,
+):
+    app.include_router(r)
 
 
 @app.get("/api/health")
