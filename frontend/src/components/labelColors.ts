@@ -1,9 +1,15 @@
-import type { LabelColor } from "@/lib/kanban";
+import type { LabelColor, Priority } from "@/lib/kanban";
 
 /**
- * Static map from token to Tailwind classes. Tailwind's JIT can only see literal
+ * Static maps from token to Tailwind classes. Tailwind's JIT can only see literal
  * class names, so we list every variant explicitly rather than interpolating.
  */
+export const PRIORITY_DOT_CLASS: Record<Priority, string> = {
+  low: "bg-[var(--primary-blue)]",
+  medium: "bg-[var(--accent-yellow)]",
+  high: "bg-red-500",
+};
+
 export const LABEL_CHIP_CLASS: Record<LabelColor, string> = {
   slate: "bg-slate-200 text-slate-800",
   red: "bg-red-200 text-red-800",

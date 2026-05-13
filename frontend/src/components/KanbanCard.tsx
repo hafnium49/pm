@@ -3,18 +3,12 @@ import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import type { Card, Priority } from "@/lib/kanban";
 import { CalendarIcon, ChecklistIcon, CommentIcon, TrashIcon } from "@/components/icons";
-import { LABEL_CHIP_CLASS } from "@/components/labelColors";
+import { LABEL_CHIP_CLASS, PRIORITY_DOT_CLASS } from "@/components/labelColors";
 
 type KanbanCardProps = {
   card: Card;
   onDelete: (cardId: string) => void;
   onOpen: (cardId: string) => void;
-};
-
-const PRIORITY_COLOR: Record<Priority, string> = {
-  low: "bg-[var(--primary-blue)]",
-  medium: "bg-[var(--accent-yellow)]",
-  high: "bg-red-500",
 };
 
 const PRIORITY_LABEL: Record<Priority, string> = {
@@ -23,7 +17,9 @@ const PRIORITY_LABEL: Record<Priority, string> = {
   high: "High priority",
 };
 
-function dueStatus(due: string): "overdue" | "today" | "upcoming" {
+type DueStatus = "overdue" | "today" | "upcoming";
+
+function dueStatus(due: string): DueStatus {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const d = new Date(`${due}T00:00:00`);
@@ -33,11 +29,23 @@ function dueStatus(due: string): "overdue" | "today" | "upcoming" {
   return "upcoming";
 }
 
-function formatDue(due: string) {
+function formatDue(due: string): string {
   const d = new Date(`${due}T00:00:00`);
   if (Number.isNaN(d.getTime())) return due;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+const DUE_BADGE_CLASS: Record<DueStatus, string> = {
+  overdue: "bg-red-50 text-red-700",
+  today: "bg-amber-50 text-amber-700",
+  upcoming: "bg-[var(--surface)] text-[var(--gray-text)]",
+};
+
+const DUE_STATUS_SUFFIX: Record<DueStatus, string> = {
+  overdue: " (overdue)",
+  today: " (today)",
+  upcoming: "",
+};
 
 export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -48,9 +56,12 @@ export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
     transition,
   };
 
-  const priority = (card.priority ?? "medium") as Priority;
+  const priority: Priority = card.priority ?? "medium";
   const due = card.due_date ?? null;
   const status = due ? dueStatus(due) : null;
+  const checklistTotal = card.checklist_total ?? 0;
+  const checklistDone = card.checklist_done ?? 0;
+  const commentCount = card.comment_count ?? 0;
 
   return (
     <article
@@ -78,7 +89,7 @@ export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
     >
       <div className="flex items-start gap-2">
         <span
-          className={clsx("mt-1.5 h-2 w-2 shrink-0 rounded-full", PRIORITY_COLOR[priority])}
+          className={clsx("mt-1.5 h-2 w-2 shrink-0 rounded-full", PRIORITY_DOT_CLASS[priority])}
           aria-label={PRIORITY_LABEL[priority]}
           title={PRIORITY_LABEL[priority]}
         />
