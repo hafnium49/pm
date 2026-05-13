@@ -18,6 +18,7 @@ from backend.routers.boards import (
     _board_full,
     _compact_active_positions,
     _find_card,
+    _move_card_within_board,
     _serialize_card,
 )
 
@@ -116,34 +117,6 @@ def move_card(
     db: Session = Depends(get_db),
 ):
     board = get_default_board(user, db)
-    card = _find_card(db, board, card_id, archived=False)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-    target_col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
-    if not target_col:
-        raise HTTPException(status_code=404, detail="Column not found")
-
-    old_col_id = card.column_id
-    card.column_id = target_col.id
-    db.flush()
-
-    if old_col_id != target_col.id:
-        _compact_active_positions(db, old_col_id)
-        db.flush()
-
-    other_cards = (
-        db.query(KanbanCard)
-        .filter(
-            KanbanCard.column_id == target_col.id,
-            KanbanCard.id != card_id,
-            KanbanCard.archived_at.is_(None),
-        )
-        .order_by(KanbanCard.position)
-        .all()
-    )
-    new_pos = max(0, min(body.position, len(other_cards)))
-    other_cards.insert(new_pos, card)
-    for i, c in enumerate(other_cards):
-        c.position = i
+    _move_card_within_board(db, board, card_id, body.column_id, body.position)
     db.commit()
     return {"ok": True}

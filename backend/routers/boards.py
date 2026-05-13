@@ -116,14 +116,9 @@ def list_boards(user: User = Depends(require_user), db: Session = Depends(get_db
         .order_by(Board.id)
         .all()
     )
-    out: list[dict] = []
-    for b in owned:
-        out.append(_board_summary(b, role="owner"))
+    out = [_board_summary(b, role="owner") for b in owned]
     for b in shared:
-        role = next(
-            (m.role for m in b.memberships if m.user_id == user.id),
-            "viewer",
-        )
+        role = next((m.role for m in b.memberships if m.user_id == user.id), "viewer")
         out.append(_board_summary(b, role=role))
     return {"boards": out}
 
@@ -353,6 +348,45 @@ def _compact_active_positions(db: Session, column_id: int) -> None:
         c.position = i
 
 
+def _move_card_within_board(
+    db: Session, board: Board, card_id: int, target_column_id: int, position: int
+) -> None:
+    """Move `card_id` to `target_column_id` at `position`, raising 404 if not found.
+
+    Compacts the source column when crossing columns and renumbers the target
+    column so positions stay contiguous.
+    """
+    card = _find_card(db, board, card_id, archived=False)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    target_col = db.query(KanbanColumn).filter_by(id=target_column_id, board_id=board.id).first()
+    if not target_col:
+        raise HTTPException(status_code=404, detail="Column not found")
+
+    old_col_id = card.column_id
+    card.column_id = target_col.id
+    db.flush()
+
+    if old_col_id != target_col.id:
+        _compact_active_positions(db, old_col_id)
+        db.flush()
+
+    other_cards = (
+        db.query(KanbanCard)
+        .filter(
+            KanbanCard.column_id == target_col.id,
+            KanbanCard.id != card_id,
+            KanbanCard.archived_at.is_(None),
+        )
+        .order_by(KanbanCard.position)
+        .all()
+    )
+    new_pos = max(0, min(position, len(other_cards)))
+    other_cards.insert(new_pos, card)
+    for i, c in enumerate(other_cards):
+        c.position = i
+
+
 @router.delete("/{board_id}/cards/{card_id}")
 def archive_card(
     board_id: int,
@@ -455,34 +489,6 @@ def move_card(
     db: Session = Depends(get_db),
 ):
     board = get_writable_board(board_id, user, db)
-    card = _find_card(db, board, card_id, archived=False)
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-    target_col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
-    if not target_col:
-        raise HTTPException(status_code=404, detail="Column not found")
-
-    old_col_id = card.column_id
-    card.column_id = target_col.id
-    db.flush()
-
-    if old_col_id != target_col.id:
-        _compact_active_positions(db, old_col_id)
-        db.flush()
-
-    other_cards = (
-        db.query(KanbanCard)
-        .filter(
-            KanbanCard.column_id == target_col.id,
-            KanbanCard.id != card_id,
-            KanbanCard.archived_at.is_(None),
-        )
-        .order_by(KanbanCard.position)
-        .all()
-    )
-    new_pos = max(0, min(body.position, len(other_cards)))
-    other_cards.insert(new_pos, card)
-    for i, c in enumerate(other_cards):
-        c.position = i
+    _move_card_within_board(db, board, card_id, body.column_id, body.position)
     db.commit()
     return {"ok": True}

@@ -22,8 +22,8 @@ import { CardDetailModal } from "@/components/CardDetailModal";
 import { AddColumnTile } from "@/components/AddColumnTile";
 import {
   moveCard as localMoveCard,
-  type BoardData,
   type BoardRole,
+  type Card,
   type ChecklistItem,
   type Comment,
   type Label,
@@ -31,7 +31,7 @@ import {
   type Member,
 } from "@/lib/kanban";
 import * as api from "@/lib/api";
-import type { ArchivedCard, BoardSummary, CardUpdate } from "@/lib/api";
+import type { ArchivedCard, BoardFull, BoardSummary, CardUpdate } from "@/lib/api";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
 import { AccountSettingsModal } from "@/components/AccountSettingsModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
@@ -53,13 +53,11 @@ import {
 
 const CURRENT_BOARD_STORAGE_KEY = "kanban.currentBoardId";
 
-type ActiveBoard = BoardData & { id: string; name: string };
-
 export const KanbanBoard = () => {
   const router = useRouter();
   const [boards, setBoards] = useState<BoardSummary[]>([]);
   const [currentBoardId, setCurrentBoardId] = useState<string | null>(null);
-  const [board, setBoard] = useState<ActiveBoard | null>(null);
+  const [board, setBoard] = useState<BoardFull | null>(null);
   const [boardLabels, setBoardLabels] = useState<Label[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
@@ -98,31 +96,25 @@ export const KanbanBoard = () => {
       api.fetchBoardById(boardId),
       api.listLabels(boardId).catch(() => []),
     ]);
-    setBoard({
-      id: data.id,
-      name: data.name,
-      columns: data.columns,
-      cards: data.cards,
-    });
+    setBoard(data);
     setBoardLabels(labels);
   }, []);
 
-  // Identify the current user once for ownership checks (e.g. own comments)
+  // Identify the current user once for ownership checks (e.g. own comments).
+  // Inline fetch here is intentional — auth endpoints aren't part of lib/api.ts wrappers.
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentUsername(data.username ?? null);
-        }
+        if (!res.ok) return;
+        const data = await res.json();
+        setCurrentUsername(data.username ?? null);
       } catch {
-        // ignored — username is only used for UI affordances
+        // Username is only used for UI affordances — fail silently.
       }
     })();
   }, []);
 
-  // Load comments + checklist lazily when a card is opened
   useEffect(() => {
     if (!openCardId || !currentBoardId) {
       setComments([]);
@@ -200,13 +192,7 @@ export const KanbanBoard = () => {
       const created = await api.createBoard(name);
       await refreshBoards();
       setCurrentBoardId(created.id);
-      setBoard({
-        id: created.id,
-        name: created.name,
-        columns: created.columns,
-        cards: created.cards,
-      });
-      // Fresh board has no labels yet
+      setBoard(created);
       setBoardLabels([]);
       setFilter(emptyFilter);
     } catch {
@@ -215,18 +201,15 @@ export const KanbanBoard = () => {
   };
 
   const handleRenameBoard = async (boardId: string, name: string) => {
-    const prev = boards;
+    const prevBoards = boards;
+    const prevName = boards.find((b) => b.id === boardId)?.name;
     setBoards((bs) => bs.map((b) => (b.id === boardId ? { ...b, name } : b)));
-    if (board && board.id === boardId) {
-      setBoard({ ...board, name });
-    }
+    if (board?.id === boardId) setBoard({ ...board, name });
     try {
       await api.renameBoard(boardId, name);
     } catch {
-      setBoards(prev);
-      if (board && board.id === boardId) {
-        setBoard({ ...board, name: prev.find((b) => b.id === boardId)?.name ?? board.name });
-      }
+      setBoards(prevBoards);
+      if (board?.id === boardId) setBoard({ ...board, name: prevName ?? board.name });
       showError("Failed to rename board.");
     }
   };
@@ -499,23 +482,19 @@ export const KanbanBoard = () => {
     if (!board || !currentBoardId) return;
     try {
       const card = await api.createCardOnBoard(currentBoardId, columnId, title, details);
-      setBoard((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          cards: { ...prev.cards, [card.id]: card },
-          columns: prev.columns.map((col) =>
-            col.id === columnId
-              ? { ...col, cardIds: [...col.cardIds, card.id] }
-              : col
-          ),
-        };
-      });
-      // Update card count summary
+      setBoard((prev) =>
+        prev
+          ? {
+              ...prev,
+              cards: { ...prev.cards, [card.id]: card },
+              columns: prev.columns.map((col) =>
+                col.id === columnId ? { ...col, cardIds: [...col.cardIds, card.id] } : col
+              ),
+            }
+          : prev,
+      );
       setBoards((bs) =>
-        bs.map((b) =>
-          b.id === currentBoardId ? { ...b, card_count: b.card_count + 1 } : b
-        )
+        bs.map((b) => (b.id === currentBoardId ? { ...b, card_count: b.card_count + 1 } : b))
       );
     } catch {
       showError("Failed to add card.");
@@ -592,7 +571,7 @@ export const KanbanBoard = () => {
     }
   };
 
-  const patchCard = (cardId: string, patch: (c: BoardData["cards"][string]) => Partial<BoardData["cards"][string]>) => {
+  const patchCard = (cardId: string, patch: (c: Card) => Partial<Card>) => {
     setBoard((prev) => {
       if (!prev?.cards[cardId]) return prev;
       const c = prev.cards[cardId];
@@ -771,7 +750,7 @@ export const KanbanBoard = () => {
   const activeCard = activeCardId && board ? board.cards[activeCardId] : null;
   const totalCards = board?.columns.reduce((sum, c) => sum + c.cardIds.length, 0) ?? 0;
 
-  let filteredColumns: ActiveBoard["columns"] = [];
+  let filteredColumns: BoardFull["columns"] = [];
   if (board) {
     if (!isFilterActive(filter)) {
       filteredColumns = board.columns;
