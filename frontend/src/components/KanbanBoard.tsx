@@ -624,21 +624,10 @@ export const KanbanBoard = () => {
   };
 
   const bumpChecklistTotals = (cardId: string, deltaDone: number, deltaTotal: number) => {
-    setBoard((prev) => {
-      if (!prev || !prev.cards[cardId]) return prev;
-      const c = prev.cards[cardId];
-      return {
-        ...prev,
-        cards: {
-          ...prev.cards,
-          [cardId]: {
-            ...c,
-            checklist_done: Math.max(0, (c.checklist_done ?? 0) + deltaDone),
-            checklist_total: Math.max(0, (c.checklist_total ?? 0) + deltaTotal),
-          },
-        },
-      };
-    });
+    patchCard(cardId, (c) => ({
+      checklist_done: Math.max(0, (c.checklist_done ?? 0) + deltaDone),
+      checklist_total: Math.max(0, (c.checklist_total ?? 0) + deltaTotal),
+    }));
   };
 
   const handleAddChecklistItem = async (cardId: string, text: string) => {
