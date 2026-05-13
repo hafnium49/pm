@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import clsx from "clsx";
 import type { Card, ChecklistItem, Comment, Label, LabelColor, Priority } from "@/lib/kanban";
+import type { CardUpdate } from "@/lib/api";
 import { CalendarIcon, CloseIcon, FlagIcon, TrashIcon } from "@/components/icons";
 import { LabelPicker } from "@/components/LabelPicker";
 import { LABEL_CHIP_CLASS } from "@/components/labelColors";
@@ -21,13 +22,7 @@ type Props = {
   onToggleChecklistItem: (itemId: string, done: boolean) => Promise<void>;
   onRenameChecklistItem: (itemId: string, text: string) => Promise<void>;
   onDeleteChecklistItem: (itemId: string) => Promise<void>;
-  onSave: (update: {
-    title?: string;
-    details?: string;
-    priority?: Priority;
-    due_date?: string | null;
-    clear_due_date?: boolean;
-  }) => Promise<void>;
+  onSave: (update: CardUpdate) => Promise<void>;
   onDelete: () => Promise<void>;
   onClose: () => void;
   onToggleLabel: (labelId: string) => Promise<void>;
@@ -96,7 +91,7 @@ export const CardDetailModal = ({
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      const update: Parameters<Props["onSave"]>[0] = {};
+      const update: CardUpdate = {};
       if (title.trim() !== card.title) update.title = title.trim();
       if (details !== card.details) update.details = details;
       if (priority !== (card.priority ?? "medium")) update.priority = priority;
