@@ -434,12 +434,14 @@ export const KanbanBoard = () => {
   const handleDeleteColumn = async (columnId: string) => {
     if (!board || !currentBoardId) return;
     const prevBoard = board;
-    const removedCardIds = board.columns.find((c) => c.id === columnId)?.cardIds ?? [];
+    const removedCardIds = new Set(
+      board.columns.find((c) => c.id === columnId)?.cardIds ?? [],
+    );
     setBoard({
       ...board,
       columns: board.columns.filter((c) => c.id !== columnId),
       cards: Object.fromEntries(
-        Object.entries(board.cards).filter(([id]) => !removedCardIds.includes(id))
+        Object.entries(board.cards).filter(([id]) => !removedCardIds.has(id)),
       ),
     });
     setBoards((bs) =>
@@ -448,7 +450,7 @@ export const KanbanBoard = () => {
           ? {
               ...b,
               column_count: Math.max(0, b.column_count - 1),
-              card_count: Math.max(0, b.card_count - removedCardIds.length),
+              card_count: Math.max(0, b.card_count - removedCardIds.size),
             }
           : b
       )
@@ -741,11 +743,11 @@ export const KanbanBoard = () => {
   const handleDeleteCard = (columnId: string, cardId: string) => {
     if (!board || !currentBoardId) return;
     const prevBoard = board;
+    const { [cardId]: _removed, ...remainingCards } = board.cards;
+    void _removed;
     setBoard({
       ...board,
-      cards: Object.fromEntries(
-        Object.entries(board.cards).filter(([id]) => id !== cardId)
-      ),
+      cards: remainingCards,
       columns: board.columns.map((col) =>
         col.id === columnId
           ? { ...col, cardIds: col.cardIds.filter((id) => id !== cardId) }
