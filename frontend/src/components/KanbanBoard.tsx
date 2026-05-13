@@ -465,7 +465,10 @@ export const KanbanBoard = () => {
     if (!board || !currentBoardId) return;
     const prevBoard = board;
     const byId = new Map(board.columns.map((c) => [c.id, c]));
-    const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean) as typeof board.columns;
+    const reordered = orderedIds.flatMap((id) => {
+      const col = byId.get(id);
+      return col ? [col] : [];
+    });
     setBoard({ ...board, columns: reordered });
     try {
       await api.reorderColumnsOnBoard(currentBoardId, orderedIds);
