@@ -6,7 +6,8 @@ from backend.security import hash_password
 DEFAULT_COLUMNS = ["Backlog", "Discovery", "In Progress", "Review", "Done"]
 
 
-def _create_default_board(user: User, db: Session) -> Board:
+def create_default_board(user: User, db: Session) -> Board:
+    """Create a 'My Board' with the standard five columns for the given user."""
     board = Board(user_id=user.id, name="My Board")
     db.add(board)
     db.flush()
@@ -23,5 +24,5 @@ def seed_db(db: Session) -> None:
         db.add(user)
         db.flush()
     if not user.boards:
-        _create_default_board(user, db)
+        create_default_board(user, db)
     db.commit()

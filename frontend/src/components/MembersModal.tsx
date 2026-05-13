@@ -48,14 +48,8 @@ export const MembersModal = ({
     { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string }
   >({ kind: "idle" });
 
-  useEffect(() => {
-    if (!open) {
-      setInviteName("");
-      setInviteRole("editor");
-      setInviteState({ kind: "idle" });
-    }
-  }, [open]);
-
+  // Modal unmounts when `open` is false (see early return below), so state
+  // is re-initialized on each open — no explicit reset effect needed.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

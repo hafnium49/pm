@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import clsx from "clsx";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -51,18 +51,19 @@ export const KanbanColumn = ({
     transition,
   };
 
+  // Sync the local draft when the prop title changes (e.g. AI rename) using
+  // the "derived state from props" pattern: compare prop to last-seen value
+  // during render and call setState to invalidate the stale draft.
   const [localTitle, setLocalTitle] = useState(column.title);
-  const committedTitle = useRef(column.title);
-
-  useEffect(() => {
+  const [lastSyncedTitle, setLastSyncedTitle] = useState(column.title);
+  if (lastSyncedTitle !== column.title) {
+    setLastSyncedTitle(column.title);
     setLocalTitle(column.title);
-    committedTitle.current = column.title;
-  }, [column.title]);
+  }
 
   const commitRename = () => {
     const trimmed = localTitle.trim();
-    if (trimmed && trimmed !== committedTitle.current) {
-      committedTitle.current = trimmed;
+    if (trimmed && trimmed !== column.title) {
       onRename(column.id, trimmed);
     }
   };

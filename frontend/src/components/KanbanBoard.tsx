@@ -822,7 +822,6 @@ export const KanbanBoard = () => {
   const matchingCards = filteredColumns.reduce((sum, c) => sum + c.cardIds.length, 0);
   const currentRole: BoardRole =
     boards.find((b) => b.id === currentBoardId)?.role ?? "owner";
-  const isOwner = currentRole === "owner";
   const isWritable = currentRole === "owner" || currentRole === "editor";
 
   if (!loaded) {

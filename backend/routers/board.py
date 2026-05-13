@@ -3,7 +3,7 @@
 These endpoints operate on the user's default (oldest) board so the existing
 frontend keeps working unchanged. New code should use /api/boards/{id}/...
 """
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +14,12 @@ from backend.auth import require_user
 from backend.database import get_db
 from backend.deps import get_default_board
 from backend.models import KanbanCard, KanbanColumn, User
-from backend.routers.boards import _board_full, _serialize_card
+from backend.routers.boards import (
+    _board_full,
+    _compact_active_positions,
+    _find_card,
+    _serialize_card,
+)
 
 Priority = Literal["low", "medium", "high"]
 
@@ -40,9 +45,7 @@ class MoveCardBody(BaseModel):
 
 @router.get("/api/board")
 def read_board(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    board = get_default_board(user, db)
-    # Existing frontend doesn't read "id" / "name"; the extra fields are harmless.
-    return _board_full(board)
+    return _board_full(get_default_board(user, db))
 
 
 @router.post("/api/board/columns/{col_id}/rename")
@@ -93,32 +96,14 @@ def archive_card(
     db: Session = Depends(get_db),
 ):
     """Soft-delete on the legacy single-board endpoint — mirrors the new /api/boards behaviour."""
-    from datetime import datetime, timezone
-
     board = get_default_board(user, db)
-    card = (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(
-            KanbanCard.id == card_id,
-            KanbanColumn.board_id == board.id,
-            KanbanCard.archived_at.is_(None),
-        )
-        .first()
-    )
+    card = _find_card(db, board, card_id, archived=False)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     col_id = card.column_id
     card.archived_at = datetime.now(timezone.utc)
     db.flush()
-    remaining = (
-        db.query(KanbanCard)
-        .filter(KanbanCard.column_id == col_id, KanbanCard.archived_at.is_(None))
-        .order_by(KanbanCard.position)
-        .all()
-    )
-    for i, c in enumerate(remaining):
-        c.position = i
+    _compact_active_positions(db, col_id)
     db.commit()
     return {"ok": True}
 
@@ -131,12 +116,7 @@ def move_card(
     db: Session = Depends(get_db),
 ):
     board = get_default_board(user, db)
-    card = (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
-        .first()
-    )
+    card = _find_card(db, board, card_id, archived=False)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     target_col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
@@ -148,19 +128,16 @@ def move_card(
     db.flush()
 
     if old_col_id != target_col.id:
-        old_cards = (
-            db.query(KanbanCard)
-            .filter_by(column_id=old_col_id)
-            .order_by(KanbanCard.position)
-            .all()
-        )
-        for i, c in enumerate(old_cards):
-            c.position = i
+        _compact_active_positions(db, old_col_id)
         db.flush()
 
     other_cards = (
         db.query(KanbanCard)
-        .filter(KanbanCard.column_id == target_col.id, KanbanCard.id != card_id)
+        .filter(
+            KanbanCard.column_id == target_col.id,
+            KanbanCard.id != card_id,
+            KanbanCard.archived_at.is_(None),
+        )
         .order_by(KanbanCard.position)
         .all()
     )

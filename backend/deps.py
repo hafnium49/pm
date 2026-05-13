@@ -59,11 +59,3 @@ def get_writable_board(board_id: int, user: User, db: Session) -> Board:
 def get_owned_board(board_id: int, user: User, db: Session) -> Board:
     """Owner-only: rename/delete board and member management."""
     return _check(board_id, user, db, "owner")
-
-
-# Back-compat alias used by old tests
-def get_board(username: str, db: Session) -> Board:
-    user = db.query(User).filter_by(username=username).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return get_default_board(user, db)

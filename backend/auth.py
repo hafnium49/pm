@@ -7,13 +7,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Board, KanbanColumn, User
+from backend.models import User
 from backend.security import (
     hash_password,
     is_legacy_sha256,
     verify_legacy_sha256,
     verify_password,
 )
+from backend.seed import create_default_board
 
 router = APIRouter(prefix="/api/auth")
 
@@ -21,7 +22,6 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-do-not-use-in-prod")
 COOKIE_NAME = "session"
 MAX_AGE = 60 * 60 * 24  # 24 hours
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
-DEFAULT_COLUMNS = ["Backlog", "Discovery", "In Progress", "Review", "Done"]
 
 signer = TimestampSigner(SECRET_KEY)
 
@@ -70,16 +70,6 @@ def _authenticate(username: str, password: str, db: Session) -> User | None:
     return None
 
 
-def _seed_board_for(user: User, db: Session) -> Board:
-    board = Board(user_id=user.id, name="My Board")
-    db.add(board)
-    db.flush()
-    for i, title in enumerate(DEFAULT_COLUMNS):
-        db.add(KanbanColumn(board_id=board.id, title=title, position=i))
-    db.flush()
-    return board
-
-
 @router.post("/register")
 def register(body: CredentialsBody, response: Response, db: Session = Depends(get_db)):
     username = body.username.strip()
@@ -96,7 +86,7 @@ def register(body: CredentialsBody, response: Response, db: Session = Depends(ge
     user = User(username=username, hashed_password=hash_password(body.password))
     db.add(user)
     db.flush()
-    _seed_board_for(user, db)
+    create_default_board(user, db)
     db.commit()
 
     _set_session_cookie(response, username)

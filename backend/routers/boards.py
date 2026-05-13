@@ -8,16 +8,15 @@ from sqlalchemy.orm import Session
 from backend.auth import require_user
 from backend.database import get_db
 from backend.deps import (
-    effective_role,
     get_owned_board,
     get_readable_board,
     get_writable_board,
 )
 from backend.models import Board, BoardMembership, KanbanCard, KanbanColumn, User
+from backend.seed import DEFAULT_COLUMNS
 
 router = APIRouter(prefix="/api/boards")
 
-DEFAULT_COLUMNS = ["Backlog", "Discovery", "In Progress", "Review", "Done"]
 Priority = Literal["low", "medium", "high"]
 
 
@@ -327,27 +326,17 @@ def update_card(
     return _serialize_card(card)
 
 
-def _find_active_card(db: Session, board: Board, card_id: int) -> KanbanCard | None:
-    return (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(
-            KanbanCard.id == card_id,
-            KanbanColumn.board_id == board.id,
-            KanbanCard.archived_at.is_(None),
-        )
-        .first()
+def _find_card(db: Session, board: Board, card_id: int, *, archived: bool) -> KanbanCard | None:
+    archive_filter = (
+        KanbanCard.archived_at.is_not(None) if archived else KanbanCard.archived_at.is_(None)
     )
-
-
-def _find_archived_card(db: Session, board: Board, card_id: int) -> KanbanCard | None:
     return (
         db.query(KanbanCard)
         .join(KanbanColumn)
         .filter(
             KanbanCard.id == card_id,
             KanbanColumn.board_id == board.id,
-            KanbanCard.archived_at.is_not(None),
+            archive_filter,
         )
         .first()
     )
@@ -374,7 +363,7 @@ def archive_card(
     """Soft-delete a card. The row stays in the DB with archived_at set; the card
     disappears from board responses but can be restored or purged later."""
     board = get_writable_board(board_id, user, db)
-    card = _find_active_card(db, board, card_id)
+    card = _find_card(db, board, card_id, archived=False)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     col_id = card.column_id
@@ -417,7 +406,7 @@ def restore_card(
     db: Session = Depends(get_db),
 ):
     board = get_writable_board(board_id, user, db)
-    card = _find_archived_card(db, board, card_id)
+    card = _find_card(db, board, card_id, archived=True)
     if not card:
         raise HTTPException(status_code=404, detail="Archived card not found")
     # Restore at the end of the active list in the original column. If the
@@ -449,7 +438,7 @@ def purge_card(
 ):
     """Permanently delete an archived card. Comments cascade with the row."""
     board = get_writable_board(board_id, user, db)
-    card = _find_archived_card(db, board, card_id)
+    card = _find_card(db, board, card_id, archived=True)
     if not card:
         raise HTTPException(status_code=404, detail="Archived card not found")
     db.delete(card)
@@ -466,7 +455,7 @@ def move_card(
     db: Session = Depends(get_db),
 ):
     board = get_writable_board(board_id, user, db)
-    card = _find_active_card(db, board, card_id)
+    card = _find_card(db, board, card_id, archived=False)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     target_col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
@@ -478,17 +467,7 @@ def move_card(
     db.flush()
 
     if old_col_id != target_col.id:
-        old_cards = (
-            db.query(KanbanCard)
-            .filter(
-                KanbanCard.column_id == old_col_id,
-                KanbanCard.archived_at.is_(None),
-            )
-            .order_by(KanbanCard.position)
-            .all()
-        )
-        for i, c in enumerate(old_cards):
-            c.position = i
+        _compact_active_positions(db, old_col_id)
         db.flush()
 
     other_cards = (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Comment } from "@/lib/kanban";
 import { TrashIcon } from "@/components/icons";
 
@@ -35,12 +35,9 @@ export const CommentsSection = ({
   onPost,
   onDelete,
 }: Props) => {
+  // CommentsSection mounts/unmounts with the parent CardDetailModal, so the
+  // draft body is reset naturally per card-open — no reset effect needed.
   const [body, setBody] = useState("");
-
-  // Reset draft body when card changes (parent uses key on this component or its parent)
-  useEffect(() => {
-    setBody("");
-  }, [comments.length === 0 && !posting]);
 
   const handleSubmit = async () => {
     const text = body.trim();

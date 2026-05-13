@@ -47,22 +47,8 @@ export const AccountSettingsModal = ({
   const [delConfirmText, setDelConfirmText] = useState("");
   const [delState, setDelState] = useState<SectionState>({ kind: "idle" });
 
-  useEffect(() => {
-    if (!open) {
-      // Reset all forms when closing
-      setPwCurrent("");
-      setPwNew("");
-      setPwConfirm("");
-      setPwState({ kind: "idle" });
-      setUnNew("");
-      setUnPassword("");
-      setUnState({ kind: "idle" });
-      setDelPassword("");
-      setDelConfirmText("");
-      setDelState({ kind: "idle" });
-    }
-  }, [open]);
-
+  // Modal unmounts when `open` is false (see early return below), so all form
+  // state is re-initialized on each open — no explicit reset effect needed.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
