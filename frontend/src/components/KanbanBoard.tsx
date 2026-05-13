@@ -557,26 +557,27 @@ export const KanbanBoard = () => {
     }
   };
 
+  const patchCardLabels = (
+    transform: (labels: Label[]) => Label[],
+  ) => {
+    setBoard((prev) => {
+      if (!prev) return prev;
+      const cards = Object.fromEntries(
+        Object.entries(prev.cards).map(([id, c]) => {
+          if (!c.labels?.length) return [id, c];
+          return [id, { ...c, labels: transform(c.labels) }];
+        }),
+      );
+      return { ...prev, cards };
+    });
+  };
+
   const handleRenameLabel = async (labelId: string, name: string, color: LabelColor) => {
     if (!currentBoardId) return;
     try {
       const updated = await api.updateLabel(currentBoardId, labelId, { name, color });
       setBoardLabels((prev) => prev.map((l) => (l.id === labelId ? updated : l)));
-      // Also patch any cards displaying this label
-      setBoard((prev) => {
-        if (!prev) return prev;
-        const cards = { ...prev.cards };
-        for (const id of Object.keys(cards)) {
-          const c = cards[id];
-          if (c.labels?.some((l) => l.id === labelId)) {
-            cards[id] = {
-              ...c,
-              labels: c.labels.map((l) => (l.id === labelId ? updated : l)),
-            };
-          }
-        }
-        return { ...prev, cards };
-      });
+      patchCardLabels((labels) => labels.map((l) => (l.id === labelId ? updated : l)));
     } catch {
       showError("Failed to rename label.");
     }
@@ -587,17 +588,7 @@ export const KanbanBoard = () => {
     try {
       await api.deleteLabel(currentBoardId, labelId);
       setBoardLabels((prev) => prev.filter((l) => l.id !== labelId));
-      setBoard((prev) => {
-        if (!prev) return prev;
-        const cards = { ...prev.cards };
-        for (const id of Object.keys(cards)) {
-          const c = cards[id];
-          if (c.labels?.some((l) => l.id === labelId)) {
-            cards[id] = { ...c, labels: c.labels.filter((l) => l.id !== labelId) };
-          }
-        }
-        return { ...prev, cards };
-      });
+      patchCardLabels((labels) => labels.filter((l) => l.id !== labelId));
     } catch {
       showError("Failed to delete label.");
     }
