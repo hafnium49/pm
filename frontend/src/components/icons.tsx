@@ -101,6 +101,13 @@ export const FlagIcon = (props: IconProps) => (
   </svg>
 );
 
+export const ChecklistIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M8 12l3 3 5-6" />
+  </svg>
+);
+
 export const CommentIcon = (props: IconProps) => (
   <svg {...base} aria-hidden="true" {...props}>
     <path d="M21 12a8 8 0 1 1-3.07-6.31L21 4l-1 4.32A8 8 0 0 1 21 12z" />
@@ -117,6 +124,37 @@ export const SearchIcon = (props: IconProps) => (
 export const FilterIcon = (props: IconProps) => (
   <svg {...base} aria-hidden="true" {...props}>
     <path d="M3 5h18l-7 9v6l-4-2v-4z" />
+  </svg>
+);
+
+export const UserIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8" />
+  </svg>
+);
+
+export const UsersIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <circle cx="9" cy="9" r="3.5" />
+    <path d="M2 20c0-3.8 3.1-6 7-6s7 2.2 7 6" />
+    <circle cx="17" cy="7" r="2.5" />
+    <path d="M22 17c0-2.5-1.8-4-4-4" />
+  </svg>
+);
+
+export const ArchiveIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <rect x="3" y="4" width="18" height="4" rx="1" />
+    <path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" />
+    <path d="M10 13h4" />
+  </svg>
+);
+
+export const RestoreIcon = (props: IconProps) => (
+  <svg {...base} aria-hidden="true" {...props}>
+    <path d="M3 12a9 9 0 1 0 3-6.7" />
+    <path d="M3 4v5h5" />
   </svg>
 );
 

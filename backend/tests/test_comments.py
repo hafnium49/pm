@@ -190,8 +190,35 @@ def test_card_payload_includes_comment_count(authed_client):
     assert refreshed["cards"][card["id"]]["comment_count"] == 2
 
 
-def test_deleting_card_cascades_to_comments(authed_client):
-    """When the card is deleted, the comment row is removed too — checked via the dep-overridden DB."""
+def test_archiving_card_preserves_comments_but_hides_them(authed_client):
+    """Archive (soft-delete) keeps the comment row but hides comments via the card-not-found path."""
+    from backend.database import get_db
+    from backend.main import app
+    from backend.models import Comment
+
+    bid = _default_board_id(authed_client)
+    card = _new_card(authed_client, bid)
+    comment = authed_client.post(
+        f"/api/boards/{bid}/cards/{card['id']}/comments",
+        json={"body": "preserved"},
+    ).json()
+
+    authed_client.delete(f"/api/boards/{bid}/cards/{card['id']}")
+    # Card is archived → comments endpoint 404s on the card
+    assert authed_client.get(f"/api/boards/{bid}/cards/{card['id']}/comments").status_code == 404
+
+    # …but the comment row is still in the DB
+    override = app.dependency_overrides[get_db]
+    gen = override()
+    db = next(gen)
+    try:
+        assert db.query(Comment).filter_by(id=int(comment["id"])).first() is not None
+    finally:
+        gen.close()
+
+
+def test_purging_archived_card_cascades_to_comments(authed_client):
+    """Permanent delete (purge) finally cascades the comment row."""
     from backend.database import get_db
     from backend.main import app
     from backend.models import Comment
@@ -202,20 +229,12 @@ def test_deleting_card_cascades_to_comments(authed_client):
         f"/api/boards/{bid}/cards/{card['id']}/comments",
         json={"body": "doomed"},
     ).json()
-
-    # Re-use the test's session factory (the one tied to in-memory DB)
-    override = app.dependency_overrides[get_db]
-    gen = override()
-    db = next(gen)
-    try:
-        assert db.query(Comment).filter_by(id=int(comment["id"])).first() is not None
-    finally:
-        gen.close()
-
     authed_client.delete(f"/api/boards/{bid}/cards/{card['id']}")
-    r = authed_client.get(f"/api/boards/{bid}/cards/{card['id']}/comments")
-    assert r.status_code == 404
+    # Now permanently purge
+    r = authed_client.delete(f"/api/boards/{bid}/archive/{card['id']}")
+    assert r.status_code == 200
 
+    override = app.dependency_overrides[get_db]
     gen = override()
     db = next(gen)
     try:

@@ -2,7 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import clsx from "clsx";
 import type { Card, Priority } from "@/lib/kanban";
-import { CalendarIcon, CommentIcon, TrashIcon } from "@/components/icons";
+import { CalendarIcon, ChecklistIcon, CommentIcon, TrashIcon } from "@/components/icons";
 import { LABEL_CHIP_CLASS } from "@/components/labelColors";
 
 type KanbanCardProps = {
@@ -107,7 +107,7 @@ export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
               {card.details}
             </p>
           )}
-          {(due || (card.comment_count ?? 0) > 0) && (
+          {(due || (card.comment_count ?? 0) > 0 || (card.checklist_total ?? 0) > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {due && (
                 <span
@@ -121,6 +121,21 @@ export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
                 >
                   <CalendarIcon width={11} height={11} />
                   {formatDue(due)}
+                </span>
+              )}
+              {(card.checklist_total ?? 0) > 0 && (
+                <span
+                  className={clsx(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    (card.checklist_done ?? 0) === card.checklist_total
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "text-[var(--gray-text)]"
+                  )}
+                  data-testid="checklist-count"
+                  title={`${card.checklist_done ?? 0} of ${card.checklist_total} done`}
+                >
+                  <ChecklistIcon width={11} height={11} />
+                  {card.checklist_done ?? 0}/{card.checklist_total}
                 </span>
               )}
               {(card.comment_count ?? 0) > 0 && (

@@ -2,11 +2,12 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import clsx from "clsx";
-import type { Card, Comment, Label, LabelColor, Priority } from "@/lib/kanban";
+import type { Card, ChecklistItem, Comment, Label, LabelColor, Priority } from "@/lib/kanban";
 import { CalendarIcon, CloseIcon, FlagIcon, TrashIcon } from "@/components/icons";
 import { LabelPicker } from "@/components/LabelPicker";
 import { LABEL_CHIP_CLASS } from "@/components/labelColors";
 import { CommentsSection } from "@/components/CommentsSection";
+import { ChecklistSection } from "@/components/ChecklistSection";
 
 type Props = {
   card: Card;
@@ -15,6 +16,11 @@ type Props = {
   comments: Comment[];
   postingComment: boolean;
   currentUsername: string | null;
+  checklist: ChecklistItem[];
+  onAddChecklistItem: (text: string) => Promise<void>;
+  onToggleChecklistItem: (itemId: string, done: boolean) => Promise<void>;
+  onRenameChecklistItem: (itemId: string, text: string) => Promise<void>;
+  onDeleteChecklistItem: (itemId: string) => Promise<void>;
   onSave: (update: {
     title?: string;
     details?: string;
@@ -45,6 +51,11 @@ export const CardDetailModal = ({
   comments,
   postingComment,
   currentUsername,
+  checklist,
+  onAddChecklistItem,
+  onToggleChecklistItem,
+  onRenameChecklistItem,
+  onDeleteChecklistItem,
   onSave,
   onDelete,
   onClose,
@@ -264,6 +275,14 @@ export const CardDetailModal = ({
               </div>
             </div>
           </div>
+
+          <ChecklistSection
+            items={checklist}
+            onAdd={onAddChecklistItem}
+            onToggle={onToggleChecklistItem}
+            onRename={onRenameChecklistItem}
+            onDelete={onDeleteChecklistItem}
+          />
 
           <CommentsSection
             comments={comments}

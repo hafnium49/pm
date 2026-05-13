@@ -30,6 +30,15 @@ export type Card = {
   due_date?: string | null;
   labels?: Label[];
   comment_count?: number;
+  checklist_total?: number;
+  checklist_done?: number;
+};
+
+export type ChecklistItem = {
+  id: string;
+  text: string;
+  done: boolean;
+  position: number;
 };
 
 export type Comment = {
@@ -38,6 +47,15 @@ export type Comment = {
   author_id: string;
   author_username: string;
   created_at: string;
+};
+
+export type BoardRole = "owner" | "editor" | "viewer";
+
+export type Member = {
+  user_id: string;
+  username: string;
+  role: BoardRole;
+  is_owner: boolean;
 };
 
 export type Column = {

@@ -11,6 +11,7 @@ type KanbanColumnProps = {
   column: Column;
   cards: Card[];
   canDelete: boolean;
+  readOnly?: boolean;
   onRename: (columnId: string, title: string) => void;
   onAddCard: (columnId: string, title: string, details: string) => void;
   onDeleteCard: (columnId: string, cardId: string) => void;
@@ -22,6 +23,7 @@ export const KanbanColumn = ({
   column,
   cards,
   canDelete,
+  readOnly = false,
   onRename,
   onAddCard,
   onDeleteCard,
@@ -83,15 +85,17 @@ export const KanbanColumn = ({
       data-testid={`column-${column.id}`}
     >
       <header className="group flex items-center gap-2 px-1 pb-3">
-        <button
-          type="button"
-          aria-label={`Reorder ${column.title}`}
-          className="inline-flex h-6 w-5 items-center justify-center rounded text-[var(--gray-text)] opacity-0 transition hover:text-[var(--navy-dark)] focus:opacity-100 group-hover:opacity-100"
-          {...attributes}
-          {...listeners}
-        >
-          <GripIcon width={14} height={14} />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            aria-label={`Reorder ${column.title}`}
+            className="inline-flex h-6 w-5 items-center justify-center rounded text-[var(--gray-text)] opacity-0 transition hover:text-[var(--navy-dark)] focus:opacity-100 group-hover:opacity-100"
+            {...attributes}
+            {...listeners}
+          >
+            <GripIcon width={14} height={14} />
+          </button>
+        )}
         <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--accent-yellow)]" />
         <input
           value={localTitle}
@@ -100,22 +104,25 @@ export const KanbanColumn = ({
           onKeyDown={(event) => {
             if (event.key === "Enter") event.currentTarget.blur();
           }}
+          readOnly={readOnly}
           className="min-w-0 flex-1 bg-transparent font-display text-[15px] font-semibold text-[var(--navy-dark)] outline-none focus:text-[var(--primary-blue)]"
           aria-label="Column title"
         />
         <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-[var(--surface)] px-2 text-[11px] font-semibold text-[var(--gray-text)]">
           {cards.length}
         </span>
-        <button
-          type="button"
-          aria-label={`Delete column ${column.title}`}
-          onClick={handleDeleteColumn}
-          disabled={!canDelete}
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--gray-text)] opacity-0 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-hover:opacity-100 disabled:group-hover:opacity-20"
-          title={canDelete ? "Delete column" : "A board must have at least one column"}
-        >
-          <TrashIcon width={12} height={12} />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            aria-label={`Delete column ${column.title}`}
+            onClick={handleDeleteColumn}
+            disabled={!canDelete}
+            className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[var(--gray-text)] opacity-0 transition hover:bg-red-50 hover:text-red-600 focus:opacity-100 disabled:cursor-not-allowed disabled:opacity-0 group-hover:opacity-100 disabled:group-hover:opacity-20"
+            title={canDelete ? "Delete column" : "A board must have at least one column"}
+          >
+            <TrashIcon width={12} height={12} />
+          </button>
+        )}
       </header>
       <div className="flex flex-1 flex-col gap-2">
         <SortableContext items={column.cardIds} strategy={verticalListSortingStrategy}>
@@ -134,9 +141,11 @@ export const KanbanColumn = ({
           </div>
         )}
       </div>
-      <NewCardForm
-        onAdd={(title, details) => onAddCard(column.id, title, details)}
-      />
+      {!readOnly && (
+        <NewCardForm
+          onAdd={(title, details) => onAddCard(column.id, title, details)}
+        />
+      )}
     </section>
   );
 };

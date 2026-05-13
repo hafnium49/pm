@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from backend.ai import chat, chat_json
 from backend.auth import require_user
 from backend.database import get_db
-from backend.deps import get_default_board, get_owned_board
+from backend.deps import get_default_board, get_writable_board
 from backend.models import Board, KanbanCard, KanbanColumn, User
 
 router = APIRouter(prefix="/api/ai")
@@ -48,6 +48,7 @@ def _board_snapshot(board: Board) -> str:
         cards = [
             {"id": str(c.id), "title": c.title}
             for c in sorted(col.cards, key=lambda c: c.position)
+            if c.archived_at is None
         ]
         cols.append({"id": str(col.id), "title": col.title, "cards": cards})
     return json.dumps({"columns": cols}, indent=2)
@@ -72,18 +73,23 @@ def _apply_updates(updates: list[CardUpdate], board: Board, db: Session) -> None
             card = (
                 db.query(KanbanCard)
                 .join(KanbanColumn)
-                .filter(KanbanCard.id == int(u.id), KanbanColumn.board_id == board.id)
+                .filter(
+                    KanbanCard.id == int(u.id),
+                    KanbanColumn.board_id == board.id,
+                    KanbanCard.archived_at.is_(None),
+                )
                 .first()
             )
             if not card:
                 continue
             if u.delete:
+                from datetime import datetime, timezone
                 col_id = card.column_id
-                db.delete(card)
+                card.archived_at = datetime.now(timezone.utc)
                 db.flush()
                 remaining = (
                     db.query(KanbanCard)
-                    .filter_by(column_id=col_id)
+                    .filter(KanbanCard.column_id == col_id, KanbanCard.archived_at.is_(None))
                     .order_by(KanbanCard.position)
                     .all()
                 )
@@ -124,7 +130,7 @@ async def ai_chat(
     db: Session = Depends(get_db),
 ):
     board = (
-        get_owned_board(body.board_id, user, db)
+        get_writable_board(body.board_id, user, db)
         if body.board_id is not None
         else get_default_board(user, db)
     )

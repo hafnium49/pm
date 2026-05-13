@@ -1,11 +1,16 @@
+from typing import Literal
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from backend.models import Board, User
+from backend.models import Board, BoardMembership, User
+
+Role = Literal["owner", "editor", "viewer"]
+ROLE_RANK = {"viewer": 1, "editor": 2, "owner": 3}
 
 
 def get_default_board(user: User, db: Session) -> Board:
-    """Return the user's oldest board (the back-compat default for /api/board)."""
+    """Return the user's oldest owned board (the back-compat default for /api/board)."""
     board = (
         db.query(Board)
         .filter_by(user_id=user.id)
@@ -17,15 +22,46 @@ def get_default_board(user: User, db: Session) -> Board:
     return board
 
 
-def get_owned_board(board_id: int, user: User, db: Session) -> Board:
-    """Return a board only if it belongs to the user; 404 otherwise."""
-    board = db.query(Board).filter_by(id=board_id, user_id=user.id).first()
+def effective_role(board: Board, user: User, db: Session) -> Role | None:
+    """Return the user's effective role on the board, or None if no access."""
+    if board.user_id == user.id:
+        return "owner"
+    membership = (
+        db.query(BoardMembership)
+        .filter_by(board_id=board.id, user_id=user.id)
+        .first()
+    )
+    return membership.role if membership else None  # type: ignore[return-value]
+
+
+def _check(board_id: int, user: User, db: Session, required: Role) -> Board:
+    board = db.query(Board).filter_by(id=board_id).first()
     if not board:
         raise HTTPException(status_code=404, detail="Board not found")
+    role = effective_role(board, user, db)
+    if role is None:
+        raise HTTPException(status_code=404, detail="Board not found")
+    if ROLE_RANK[role] < ROLE_RANK[required]:
+        raise HTTPException(status_code=403, detail=f"Requires {required} access")
     return board
 
 
-# Back-compat alias used by existing tests and routers
+def get_readable_board(board_id: int, user: User, db: Session) -> Board:
+    """Any role (owner/editor/viewer) can read."""
+    return _check(board_id, user, db, "viewer")
+
+
+def get_writable_board(board_id: int, user: User, db: Session) -> Board:
+    """Editor and owner can mutate cards/columns/labels/comments."""
+    return _check(board_id, user, db, "editor")
+
+
+def get_owned_board(board_id: int, user: User, db: Session) -> Board:
+    """Owner-only: rename/delete board and member management."""
+    return _check(board_id, user, db, "owner")
+
+
+# Back-compat alias used by old tests
 def get_board(username: str, db: Session) -> Board:
     user = db.query(User).filter_by(username=username).first()
     if not user:

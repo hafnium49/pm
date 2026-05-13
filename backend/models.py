@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, relationship
 
 
@@ -28,6 +28,11 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
 
     boards = relationship("Board", back_populates="user", cascade="all, delete-orphan")
+    memberships = relationship(
+        "BoardMembership",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class Board(Base):
@@ -49,6 +54,11 @@ class Board(Base):
         back_populates="board",
         cascade="all, delete-orphan",
         order_by="Label.id",
+    )
+    memberships = relationship(
+        "BoardMembership",
+        back_populates="board",
+        cascade="all, delete-orphan",
     )
 
 
@@ -79,6 +89,7 @@ class KanbanCard(Base):
     position = Column(Integer, nullable=False)
     priority = Column(String, nullable=False, default="medium")
     due_date = Column(Date, nullable=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
 
     column = relationship("KanbanColumn", back_populates="cards")
     labels = relationship(
@@ -92,6 +103,12 @@ class KanbanCard(Base):
         back_populates="card",
         cascade="all, delete-orphan",
         order_by="Comment.created_at",
+    )
+    checklist_items = relationship(
+        "ChecklistItem",
+        back_populates="card",
+        cascade="all, delete-orphan",
+        order_by="ChecklistItem.position",
     )
 
 
@@ -119,3 +136,30 @@ class Comment(Base):
 
     card = relationship("KanbanCard", back_populates="comments")
     author = relationship("User")
+
+
+class ChecklistItem(Base):
+    __tablename__ = "checklist_items"
+
+    id = Column(Integer, primary_key=True)
+    card_id = Column(Integer, ForeignKey("cards.id", ondelete="CASCADE"), nullable=False)
+    text = Column(String, nullable=False)
+    done = Column(Boolean, nullable=False, default=False)
+    position = Column(Integer, nullable=False)
+
+    card = relationship("KanbanCard", back_populates="checklist_items")
+
+
+class BoardMembership(Base):
+    """A non-owner collaborator on a board. The board's `user_id` is the implicit
+    owner; this table stores additional viewer/editor access for other users."""
+    __tablename__ = "board_memberships"
+    __table_args__ = (UniqueConstraint("board_id", "user_id", name="uq_member_board_user"),)
+
+    id = Column(Integer, primary_key=True)
+    board_id = Column(Integer, ForeignKey("boards.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String, nullable=False)  # 'editor' | 'viewer' (owner is implicit via Board.user_id)
+
+    board = relationship("Board", back_populates="memberships")
+    user = relationship("User", back_populates="memberships")

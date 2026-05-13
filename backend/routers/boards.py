@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,8 +7,13 @@ from sqlalchemy.orm import Session
 
 from backend.auth import require_user
 from backend.database import get_db
-from backend.deps import get_owned_board
-from backend.models import Board, KanbanCard, KanbanColumn, User
+from backend.deps import (
+    effective_role,
+    get_owned_board,
+    get_readable_board,
+    get_writable_board,
+)
+from backend.models import Board, BoardMembership, KanbanCard, KanbanColumn, User
 
 router = APIRouter(prefix="/api/boards")
 
@@ -59,6 +64,7 @@ class MoveCardBody(BaseModel):
 
 
 def _serialize_card(card: KanbanCard) -> dict:
+    items = list(card.checklist_items or [])
     return {
         "id": str(card.id),
         "title": card.title,
@@ -70,15 +76,20 @@ def _serialize_card(card: KanbanCard) -> dict:
             for label in (card.labels or [])
         ],
         "comment_count": len(card.comments or []),
+        "checklist_total": len(items),
+        "checklist_done": sum(1 for i in items if i.done),
     }
 
 
-def _board_summary(board: Board) -> dict:
+def _board_summary(board: Board, role: str = "owner") -> dict:
     return {
         "id": str(board.id),
         "name": board.name,
+        "role": role,
         "column_count": len(board.columns),
-        "card_count": sum(len(c.cards) for c in board.columns),
+        "card_count": sum(
+            1 for c in board.columns for card in c.cards if card.archived_at is None
+        ),
     }
 
 
@@ -88,6 +99,8 @@ def _board_full(board: Board) -> dict:
     for col in sorted(board.columns, key=lambda c: c.position):
         card_ids = []
         for card in sorted(col.cards, key=lambda c: c.position):
+            if card.archived_at is not None:
+                continue
             card_ids.append(str(card.id))
             cards[str(card.id)] = _serialize_card(card)
         columns.append({"id": str(col.id), "title": col.title, "cardIds": card_ids})
@@ -96,8 +109,24 @@ def _board_full(board: Board) -> dict:
 
 @router.get("")
 def list_boards(user: User = Depends(require_user), db: Session = Depends(get_db)):
-    boards = db.query(Board).filter_by(user_id=user.id).order_by(Board.id).all()
-    return {"boards": [_board_summary(b) for b in boards]}
+    owned = db.query(Board).filter_by(user_id=user.id).order_by(Board.id).all()
+    shared = (
+        db.query(Board)
+        .join(BoardMembership, BoardMembership.board_id == Board.id)
+        .filter(BoardMembership.user_id == user.id)
+        .order_by(Board.id)
+        .all()
+    )
+    out: list[dict] = []
+    for b in owned:
+        out.append(_board_summary(b, role="owner"))
+    for b in shared:
+        role = next(
+            (m.role for m in b.memberships if m.user_id == user.id),
+            "viewer",
+        )
+        out.append(_board_summary(b, role=role))
+    return {"boards": out}
 
 
 @router.post("")
@@ -122,7 +151,7 @@ def read_board(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    return _board_full(get_owned_board(board_id, user, db))
+    return _board_full(get_readable_board(board_id, user, db))
 
 
 @router.post("/{board_id}/rename")
@@ -160,7 +189,7 @@ def add_column(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     max_pos = max((c.position for c in board.columns), default=-1)
     col = KanbanColumn(board_id=board.id, title=body.title.strip(), position=max_pos + 1)
     db.add(col)
@@ -176,7 +205,7 @@ def delete_column(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     col = db.query(KanbanColumn).filter_by(id=col_id, board_id=board.id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
@@ -204,7 +233,7 @@ def reorder_columns(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     existing_ids = {c.id for c in board.columns}
     submitted_ids = list(body.column_ids)
     if set(submitted_ids) != existing_ids or len(submitted_ids) != len(existing_ids):
@@ -227,7 +256,7 @@ def rename_column(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     col = db.query(KanbanColumn).filter_by(id=col_id, board_id=board.id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
@@ -243,7 +272,7 @@ def create_card(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
     if not col:
         raise HTTPException(status_code=404, detail="Column not found")
@@ -270,11 +299,15 @@ def update_card(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     card = (
         db.query(KanbanCard)
         .join(KanbanColumn)
-        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
+        .filter(
+            KanbanCard.id == card_id,
+            KanbanColumn.board_id == board.id,
+            KanbanCard.archived_at.is_(None),
+        )
         .first()
     )
     if not card:
@@ -294,33 +327,132 @@ def update_card(
     return _serialize_card(card)
 
 
+def _find_active_card(db: Session, board: Board, card_id: int) -> KanbanCard | None:
+    return (
+        db.query(KanbanCard)
+        .join(KanbanColumn)
+        .filter(
+            KanbanCard.id == card_id,
+            KanbanColumn.board_id == board.id,
+            KanbanCard.archived_at.is_(None),
+        )
+        .first()
+    )
+
+
+def _find_archived_card(db: Session, board: Board, card_id: int) -> KanbanCard | None:
+    return (
+        db.query(KanbanCard)
+        .join(KanbanColumn)
+        .filter(
+            KanbanCard.id == card_id,
+            KanbanColumn.board_id == board.id,
+            KanbanCard.archived_at.is_not(None),
+        )
+        .first()
+    )
+
+
+def _compact_active_positions(db: Session, column_id: int) -> None:
+    active = (
+        db.query(KanbanCard)
+        .filter(KanbanCard.column_id == column_id, KanbanCard.archived_at.is_(None))
+        .order_by(KanbanCard.position)
+        .all()
+    )
+    for i, c in enumerate(active):
+        c.position = i
+
+
 @router.delete("/{board_id}/cards/{card_id}")
-def delete_card(
+def archive_card(
     board_id: int,
     card_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
-    card = (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
-        .first()
-    )
+    """Soft-delete a card. The row stays in the DB with archived_at set; the card
+    disappears from board responses but can be restored or purged later."""
+    board = get_writable_board(board_id, user, db)
+    card = _find_active_card(db, board, card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     col_id = card.column_id
-    db.delete(card)
+    card.archived_at = datetime.now(timezone.utc)
     db.flush()
-    remaining = (
+    _compact_active_positions(db, col_id)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/{board_id}/archive")
+def list_archived_cards(
+    board_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    board = get_readable_board(board_id, user, db)
+    cards = (
         db.query(KanbanCard)
-        .filter_by(column_id=col_id)
-        .order_by(KanbanCard.position)
+        .join(KanbanColumn)
+        .filter(KanbanColumn.board_id == board.id, KanbanCard.archived_at.is_not(None))
+        .order_by(KanbanCard.archived_at.desc())
         .all()
     )
-    for i, c in enumerate(remaining):
-        c.position = i
+    out = []
+    for c in cards:
+        item = _serialize_card(c)
+        item["archived_at"] = c.archived_at.isoformat() if c.archived_at else None
+        item["column_id"] = str(c.column_id)
+        item["column_title"] = c.column.title if c.column else ""
+        out.append(item)
+    return {"cards": out}
+
+
+@router.post("/{board_id}/cards/{card_id}/restore")
+def restore_card(
+    board_id: int,
+    card_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    board = get_writable_board(board_id, user, db)
+    card = _find_archived_card(db, board, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Archived card not found")
+    # Restore at the end of the active list in the original column. If the
+    # column no longer exists (e.g. deleted while card was archived), restore
+    # into the first column on the board.
+    col = db.query(KanbanColumn).filter_by(id=card.column_id, board_id=board.id).first()
+    if not col:
+        col = sorted(board.columns, key=lambda c: c.position)[0] if board.columns else None
+        if col is None:
+            raise HTTPException(status_code=409, detail="Board has no columns to restore into")
+        card.column_id = col.id
+    max_pos = max(
+        (c.position for c in col.cards if c.archived_at is None and c.id != card.id),
+        default=-1,
+    )
+    card.position = max_pos + 1
+    card.archived_at = None
+    db.commit()
+    db.refresh(card)
+    return _serialize_card(card)
+
+
+@router.delete("/{board_id}/archive/{card_id}")
+def purge_card(
+    board_id: int,
+    card_id: int,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """Permanently delete an archived card. Comments cascade with the row."""
+    board = get_writable_board(board_id, user, db)
+    card = _find_archived_card(db, board, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Archived card not found")
+    db.delete(card)
     db.commit()
     return {"ok": True}
 
@@ -333,13 +465,8 @@ def move_card(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
-    card = (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
-        .first()
-    )
+    board = get_writable_board(board_id, user, db)
+    card = _find_active_card(db, board, card_id)
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     target_col = db.query(KanbanColumn).filter_by(id=body.column_id, board_id=board.id).first()
@@ -353,7 +480,10 @@ def move_card(
     if old_col_id != target_col.id:
         old_cards = (
             db.query(KanbanCard)
-            .filter_by(column_id=old_col_id)
+            .filter(
+                KanbanCard.column_id == old_col_id,
+                KanbanCard.archived_at.is_(None),
+            )
             .order_by(KanbanCard.position)
             .all()
         )
@@ -363,7 +493,11 @@ def move_card(
 
     other_cards = (
         db.query(KanbanCard)
-        .filter(KanbanCard.column_id == target_col.id, KanbanCard.id != card_id)
+        .filter(
+            KanbanCard.column_id == target_col.id,
+            KanbanCard.id != card_id,
+            KanbanCard.archived_at.is_(None),
+        )
         .order_by(KanbanCard.position)
         .all()
     )

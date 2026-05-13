@@ -31,6 +31,20 @@ class CredentialsBody(BaseModel):
     password: str = Field(min_length=1, max_length=256)
 
 
+class ChangePasswordBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=8, max_length=256)
+
+
+class ChangeUsernameBody(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+    new_username: str = Field(min_length=3, max_length=32)
+
+
+class DeleteAccountBody(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+
 def _set_session_cookie(response: Response, username: str) -> None:
     token = signer.sign(username).decode()
     response.set_cookie(
@@ -126,3 +140,58 @@ def require_user(
 @router.get("/me")
 def me(user: User = Depends(require_user)):
     return {"username": user.username}
+
+
+@router.post("/change_password")
+def change_password(
+    body: ChangePasswordBody,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(body.current_password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+    user.hashed_password = hash_password(body.new_password)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/change_username")
+def change_username(
+    body: ChangeUsernameBody,
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Password is incorrect")
+    new_username = body.new_username.strip()
+    if not USERNAME_RE.match(new_username):
+        raise HTTPException(
+            status_code=400,
+            detail="Username must be 3-32 chars: letters, digits, dot, underscore, hyphen.",
+        )
+    if new_username == user.username:
+        return {"username": user.username}
+    existing = db.query(User).filter_by(username=new_username).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="Username is already taken.")
+    user.username = new_username
+    db.commit()
+    # Re-sign the session so the cookie carries the new username
+    _set_session_cookie(response, new_username)
+    return {"username": new_username}
+
+
+@router.delete("/account")
+def delete_account(
+    body: DeleteAccountBody,
+    response: Response,
+    user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    if not verify_password(body.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Password is incorrect")
+    db.delete(user)
+    db.commit()
+    response.delete_cookie(key=COOKIE_NAME, samesite="strict")
+    return {"ok": True}

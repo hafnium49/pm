@@ -1,4 +1,14 @@
-import type { BoardData, Card, Comment, Label, LabelColor, Priority } from "@/lib/kanban";
+import type {
+  BoardData,
+  BoardRole,
+  Card,
+  ChecklistItem,
+  Comment,
+  Label,
+  LabelColor,
+  Member,
+  Priority,
+} from "@/lib/kanban";
 
 export type CardUpdate = {
   title?: string;
@@ -11,6 +21,7 @@ export type CardUpdate = {
 export type BoardSummary = {
   id: string;
   name: string;
+  role: BoardRole;
   column_count: number;
   card_count: number;
 };
@@ -28,6 +39,49 @@ export async function register(username: string, password: string): Promise<void
   if (!r.ok) {
     const data = await r.json().catch(() => ({}));
     throw new Error(data.detail || "Registration failed");
+  }
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const r = await fetch("/api/auth/change_password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not change password");
+  }
+}
+
+export async function changeUsername(
+  password: string,
+  newUsername: string,
+): Promise<string> {
+  const r = await fetch("/api/auth/change_username", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password, new_username: newUsername }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not change username");
+  }
+  return (await r.json()).username as string;
+}
+
+export async function deleteAccount(password: string): Promise<void> {
+  const r = await fetch("/api/auth/account", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Could not delete account");
   }
 }
 
@@ -230,6 +284,148 @@ export async function setCardLabels(
   });
   if (!r.ok) throw new Error("Failed to update card labels");
   return (await r.json()).labels as Label[];
+}
+
+// ---------- Checklist ----------
+
+export async function listChecklist(
+  boardId: string,
+  cardId: string,
+): Promise<ChecklistItem[]> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}/checklist`);
+  if (!r.ok) throw new Error("Failed to load checklist");
+  return (await r.json()).items as ChecklistItem[];
+}
+
+export async function addChecklistItem(
+  boardId: string,
+  cardId: string,
+  text: string,
+): Promise<ChecklistItem> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}/checklist`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!r.ok) throw new Error("Failed to add checklist item");
+  return r.json();
+}
+
+export async function updateChecklistItem(
+  boardId: string,
+  cardId: string,
+  itemId: string,
+  update: { text?: string; done?: boolean },
+): Promise<ChecklistItem> {
+  const r = await fetch(
+    `/api/boards/${boardId}/cards/${cardId}/checklist/${itemId}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update),
+    },
+  );
+  if (!r.ok) throw new Error("Failed to update checklist item");
+  return r.json();
+}
+
+export async function deleteChecklistItem(
+  boardId: string,
+  cardId: string,
+  itemId: string,
+): Promise<void> {
+  const r = await fetch(
+    `/api/boards/${boardId}/cards/${cardId}/checklist/${itemId}`,
+    { method: "DELETE" },
+  );
+  if (!r.ok) throw new Error("Failed to delete checklist item");
+}
+
+// ---------- Members ----------
+
+export async function listMembers(boardId: string): Promise<Member[]> {
+  const r = await fetch(`/api/boards/${boardId}/members`);
+  if (!r.ok) throw new Error("Failed to load members");
+  return (await r.json()).members as Member[];
+}
+
+export async function inviteMember(
+  boardId: string,
+  username: string,
+  role: Exclude<BoardRole, "owner">,
+): Promise<Member> {
+  const r = await fetch(`/api/boards/${boardId}/members`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, role }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to invite");
+  }
+  return r.json();
+}
+
+export async function updateMemberRole(
+  boardId: string,
+  userId: string,
+  role: Exclude<BoardRole, "owner">,
+): Promise<Member> {
+  const r = await fetch(`/api/boards/${boardId}/members/${userId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role }),
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to update role");
+  }
+  return r.json();
+}
+
+export async function removeMember(boardId: string, userId: string): Promise<void> {
+  const r = await fetch(`/api/boards/${boardId}/members/${userId}`, {
+    method: "DELETE",
+  });
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}));
+    throw new Error(data.detail || "Failed to remove member");
+  }
+}
+
+// ---------- Archive ----------
+
+export type ArchivedCard = Card & {
+  archived_at: string | null;
+  column_id: string;
+  column_title: string;
+};
+
+export async function listArchivedCards(boardId: string): Promise<ArchivedCard[]> {
+  const r = await fetch(`/api/boards/${boardId}/archive`);
+  if (!r.ok) throw new Error("Failed to load archived cards");
+  return (await r.json()).cards as ArchivedCard[];
+}
+
+export async function restoreCardOnBoard(
+  boardId: string,
+  cardId: string,
+): Promise<Card> {
+  const r = await fetch(`/api/boards/${boardId}/cards/${cardId}/restore`, {
+    method: "POST",
+  });
+  if (!r.ok) throw new Error("Failed to restore card");
+  return r.json();
+}
+
+export async function purgeArchivedCard(
+  boardId: string,
+  cardId: string,
+): Promise<void> {
+  const r = await fetch(`/api/boards/${boardId}/archive/${cardId}`, {
+    method: "DELETE",
+  });
+  if (!r.ok) throw new Error("Failed to permanently delete card");
 }
 
 // ---------- Comments ----------

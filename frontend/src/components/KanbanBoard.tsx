@@ -23,15 +23,28 @@ import { AddColumnTile } from "@/components/AddColumnTile";
 import {
   moveCard as localMoveCard,
   type BoardData,
+  type BoardRole,
+  type ChecklistItem,
   type Comment,
   type Label,
   type LabelColor,
+  type Member,
 } from "@/lib/kanban";
 import * as api from "@/lib/api";
 import type { BoardSummary, CardUpdate } from "@/lib/api";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
+import { AccountSettingsModal } from "@/components/AccountSettingsModal";
+import { ArchiveModal } from "@/components/ArchiveModal";
 import { FilterBar } from "@/components/FilterBar";
-import { LogOutIcon, SparkleIcon } from "@/components/icons";
+import { MembersModal } from "@/components/MembersModal";
+import {
+  ArchiveIcon,
+  LogOutIcon,
+  SparkleIcon,
+  UserIcon,
+  UsersIcon,
+} from "@/components/icons";
+import type { ArchivedCard } from "@/lib/api";
 import {
   cardMatches,
   emptyFilter,
@@ -55,8 +68,17 @@ export const KanbanBoard = () => {
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
   const [postingComment, setPostingComment] = useState(false);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const [filter, setFilter] = useState<CardFilter>(emptyFilter);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archivedCards, setArchivedCards] = useState<ArchivedCard[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -101,19 +123,26 @@ export const KanbanBoard = () => {
     })();
   }, []);
 
-  // Load comments lazily when a card is opened
+  // Load comments + checklist lazily when a card is opened
   useEffect(() => {
     if (!openCardId || !currentBoardId) {
       setComments([]);
+      setChecklist([]);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
-        const list = await api.listComments(currentBoardId, openCardId);
-        if (!cancelled) setComments(list);
+        const [c, l] = await Promise.all([
+          api.listComments(currentBoardId, openCardId),
+          api.listChecklist(currentBoardId, openCardId),
+        ]);
+        if (!cancelled) {
+          setComments(c);
+          setChecklist(l);
+        }
       } catch {
-        if (!cancelled) showError("Could not load comments.");
+        if (!cancelled) showError("Could not load card details.");
       }
     })();
     return () => {
@@ -182,6 +211,7 @@ export const KanbanBoard = () => {
       });
       // Fresh board has no labels yet
       setBoardLabels([]);
+      setFilter(emptyFilter);
     } catch {
       showError("Failed to create board.");
     }
@@ -260,6 +290,123 @@ export const KanbanBoard = () => {
       showError("Failed to move card.");
       setBoard(prevBoard);
     });
+  };
+
+  const refreshMembers = useCallback(async () => {
+    if (!currentBoardId) return;
+    setMembersLoading(true);
+    try {
+      const list = await api.listMembers(currentBoardId);
+      setMembers(list);
+      if (currentUsername) {
+        const me = list.find((m) => m.username === currentUsername);
+        if (me) setCurrentUserId(me.user_id);
+      }
+    } catch {
+      showError("Could not load members.");
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [currentBoardId, currentUsername, showError]);
+
+  const handleOpenMembers = async () => {
+    setMembersOpen(true);
+    await refreshMembers();
+  };
+
+  const handleInviteMember = async (
+    username: string,
+    role: Exclude<BoardRole, "owner">,
+  ) => {
+    if (!currentBoardId) return;
+    await api.inviteMember(currentBoardId, username, role);
+    await refreshMembers();
+  };
+
+  const handleChangeMemberRole = async (
+    userId: string,
+    role: Exclude<BoardRole, "owner">,
+  ) => {
+    if (!currentBoardId) return;
+    try {
+      await api.updateMemberRole(currentBoardId, userId, role);
+      setMembers((prev) =>
+        prev.map((m) => (m.user_id === userId ? { ...m, role } : m))
+      );
+    } catch {
+      showError("Failed to change role.");
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!currentBoardId) return;
+    const isSelf = userId === currentUserId;
+    const confirmMsg = isSelf
+      ? "Leave this board? You won't be able to access it again unless re-invited."
+      : "Remove this member?";
+    if (!confirm(confirmMsg)) return;
+    try {
+      await api.removeMember(currentBoardId, userId);
+      if (isSelf) {
+        setMembersOpen(false);
+        // We no longer have access — reload the boards list & switch
+        const list = await refreshBoards();
+        if (list.length > 0) {
+          setCurrentBoardId(list[0].id);
+          await loadBoard(list[0].id);
+        } else {
+          setBoard(null);
+          setCurrentBoardId(null);
+        }
+      } else {
+        setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+      }
+    } catch (e) {
+      showError(e instanceof Error ? e.message : "Failed to remove member.");
+    }
+  };
+
+  const refreshArchive = useCallback(async () => {
+    if (!currentBoardId) return [];
+    setArchiveLoading(true);
+    try {
+      const list = await api.listArchivedCards(currentBoardId);
+      setArchivedCards(list);
+      return list;
+    } catch {
+      showError("Could not load archive.");
+      return [];
+    } finally {
+      setArchiveLoading(false);
+    }
+  }, [currentBoardId, showError]);
+
+  const handleOpenArchive = async () => {
+    setArchiveOpen(true);
+    await refreshArchive();
+  };
+
+  const handleRestoreFromArchive = async (cardId: string) => {
+    if (!currentBoardId) return;
+    try {
+      await api.restoreCardOnBoard(currentBoardId, cardId);
+      setArchivedCards((prev) => prev.filter((c) => c.id !== cardId));
+      // Refresh the board so the card reappears in its column
+      await loadBoard(currentBoardId);
+      await refreshBoards();
+    } catch {
+      showError("Failed to restore card.");
+    }
+  };
+
+  const handlePurgeFromArchive = async (cardId: string) => {
+    if (!currentBoardId) return;
+    try {
+      await api.purgeArchivedCard(currentBoardId, cardId);
+      setArchivedCards((prev) => prev.filter((c) => c.id !== cardId));
+    } catch {
+      showError("Failed to delete card permanently.");
+    }
   };
 
   const handleAddColumn = async (title: string) => {
@@ -487,6 +634,83 @@ export const KanbanBoard = () => {
     }
   };
 
+  const bumpChecklistTotals = (cardId: string, deltaDone: number, deltaTotal: number) => {
+    setBoard((prev) => {
+      if (!prev || !prev.cards[cardId]) return prev;
+      const c = prev.cards[cardId];
+      return {
+        ...prev,
+        cards: {
+          ...prev.cards,
+          [cardId]: {
+            ...c,
+            checklist_done: Math.max(0, (c.checklist_done ?? 0) + deltaDone),
+            checklist_total: Math.max(0, (c.checklist_total ?? 0) + deltaTotal),
+          },
+        },
+      };
+    });
+  };
+
+  const handleAddChecklistItem = async (cardId: string, text: string) => {
+    if (!currentBoardId) return;
+    try {
+      const item = await api.addChecklistItem(currentBoardId, cardId, text);
+      setChecklist((prev) => [...prev, item]);
+      bumpChecklistTotals(cardId, 0, 1);
+    } catch {
+      showError("Failed to add subtask.");
+    }
+  };
+
+  const handleToggleChecklistItem = async (
+    cardId: string,
+    itemId: string,
+    done: boolean,
+  ) => {
+    if (!currentBoardId) return;
+    const prev = checklist;
+    setChecklist((p) => p.map((i) => (i.id === itemId ? { ...i, done } : i)));
+    bumpChecklistTotals(cardId, done ? 1 : -1, 0);
+    try {
+      await api.updateChecklistItem(currentBoardId, cardId, itemId, { done });
+    } catch {
+      setChecklist(prev);
+      bumpChecklistTotals(cardId, done ? -1 : 1, 0);
+      showError("Failed to toggle subtask.");
+    }
+  };
+
+  const handleRenameChecklistItem = async (
+    cardId: string,
+    itemId: string,
+    text: string,
+  ) => {
+    if (!currentBoardId) return;
+    try {
+      const updated = await api.updateChecklistItem(currentBoardId, cardId, itemId, { text });
+      setChecklist((p) => p.map((i) => (i.id === itemId ? updated : i)));
+    } catch {
+      showError("Failed to rename subtask.");
+    }
+  };
+
+  const handleDeleteChecklistItem = async (cardId: string, itemId: string) => {
+    if (!currentBoardId) return;
+    const removed = checklist.find((i) => i.id === itemId);
+    if (!removed) return;
+    const prev = checklist;
+    setChecklist((p) => p.filter((i) => i.id !== itemId));
+    bumpChecklistTotals(cardId, removed.done ? -1 : 0, -1);
+    try {
+      await api.deleteChecklistItem(currentBoardId, cardId, itemId);
+    } catch {
+      setChecklist(prev);
+      bumpChecklistTotals(cardId, removed.done ? 1 : 0, 1);
+      showError("Failed to delete subtask.");
+    }
+  };
+
   const handleDeleteComment = async (cardId: string, commentId: string) => {
     if (!currentBoardId) return;
     const prevComments = comments;
@@ -596,6 +820,10 @@ export const KanbanBoard = () => {
   }, [board, filter]);
 
   const matchingCards = filteredColumns.reduce((sum, c) => sum + c.cardIds.length, 0);
+  const currentRole: BoardRole =
+    boards.find((b) => b.id === currentBoardId)?.role ?? "owner";
+  const isOwner = currentRole === "owner";
+  const isWritable = currentRole === "owner" || currentRole === "editor";
 
   if (!loaded) {
     return (
@@ -641,6 +869,33 @@ export const KanbanBoard = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleOpenMembers}
+              aria-label="Open members"
+              title="Board members"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+            >
+              <UsersIcon />
+            </button>
+            <button
+              onClick={handleOpenArchive}
+              aria-label="Open archive"
+              title="Archived cards"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+            >
+              <ArchiveIcon />
+            </button>
+            <button
+              onClick={() => setAccountOpen(true)}
+              aria-label="Account settings"
+              title={currentUsername ? `Signed in as ${currentUsername}` : "Account settings"}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--stroke)] px-3 text-xs font-semibold text-[var(--navy-dark)] transition hover:border-[var(--primary-blue)]"
+            >
+              <UserIcon width={14} height={14} className="text-[var(--gray-text)]" />
+              <span className="max-w-[120px] truncate">
+                {currentUsername ?? "Account"}
+              </span>
+            </button>
             <button
               onClick={() => setSidebarOpen((o) => !o)}
               aria-label="Toggle AI assistant"
@@ -692,7 +947,8 @@ export const KanbanBoard = () => {
                         key={column.id}
                         column={column}
                         cards={column.cardIds.map((cardId) => board.cards[cardId]).filter(Boolean)}
-                        canDelete={board.columns.length > 1}
+                        canDelete={board.columns.length > 1 && isWritable}
+                        readOnly={!isWritable}
                         onRename={handleRenameColumn}
                         onAddCard={handleAddCard}
                         onDeleteCard={handleDeleteCard}
@@ -701,7 +957,7 @@ export const KanbanBoard = () => {
                       />
                     ))}
                   </SortableContext>
-                  <AddColumnTile onAdd={handleAddColumn} />
+                  {isWritable && <AddColumnTile onAdd={handleAddColumn} />}
                 </section>
                 <DragOverlay>
                   {activeCard ? (
@@ -735,6 +991,38 @@ export const KanbanBoard = () => {
           onClose={() => setSidebarOpen(false)}
         />
       )}
+      <MembersModal
+        open={membersOpen}
+        boardName={board?.name ?? ""}
+        members={members}
+        loading={membersLoading}
+        currentRole={currentRole}
+        currentUserId={currentUserId}
+        onClose={() => setMembersOpen(false)}
+        onInvite={handleInviteMember}
+        onChangeRole={handleChangeMemberRole}
+        onRemove={handleRemoveMember}
+      />
+      <ArchiveModal
+        open={archiveOpen}
+        cards={archivedCards}
+        loading={archiveLoading}
+        onClose={() => setArchiveOpen(false)}
+        onRestore={handleRestoreFromArchive}
+        onPurge={handlePurgeFromArchive}
+      />
+      <AccountSettingsModal
+        open={accountOpen}
+        currentUsername={currentUsername}
+        onClose={() => setAccountOpen(false)}
+        onUsernameChanged={(name) => setCurrentUsername(name)}
+        onAccountDeleted={() => {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(CURRENT_BOARD_STORAGE_KEY);
+          }
+          router.replace("/login");
+        }}
+      />
       {openCardId && board && board.cards[openCardId] && (
         <CardDetailModal
           open
@@ -756,6 +1044,17 @@ export const KanbanBoard = () => {
           onDeleteLabel={handleDeleteLabel}
           onPostComment={(body) => handlePostComment(openCardId, body)}
           onDeleteComment={(commentId) => handleDeleteComment(openCardId, commentId)}
+          checklist={checklist}
+          onAddChecklistItem={(text) => handleAddChecklistItem(openCardId, text)}
+          onToggleChecklistItem={(itemId, done) =>
+            handleToggleChecklistItem(openCardId, itemId, done)
+          }
+          onRenameChecklistItem={(itemId, text) =>
+            handleRenameChecklistItem(openCardId, itemId, text)
+          }
+          onDeleteChecklistItem={(itemId) =>
+            handleDeleteChecklistItem(openCardId, itemId)
+          }
         />
       )}
     </div>

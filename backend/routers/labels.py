@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from backend.auth import require_user
 from backend.database import get_db
-from backend.deps import get_owned_board
+from backend.deps import get_readable_board, get_writable_board
 from backend.models import KanbanCard, KanbanColumn, Label, User
 
 router = APIRouter(prefix="/api/boards")
@@ -35,8 +35,8 @@ def _serialize_label(label: Label) -> dict:
     return {"id": str(label.id), "name": label.name, "color": label.color}
 
 
-def _get_owned_label(board_id: int, label_id: int, user: User, db: Session) -> Label:
-    board = get_owned_board(board_id, user, db)
+def _get_writable_label(board_id: int, label_id: int, user: User, db: Session) -> Label:
+    board = get_writable_board(board_id, user, db)
     label = db.query(Label).filter_by(id=label_id, board_id=board.id).first()
     if not label:
         raise HTTPException(status_code=404, detail="Label not found")
@@ -49,7 +49,7 @@ def list_labels(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_readable_board(board_id, user, db)
     return {"labels": [_serialize_label(label) for label in board.labels]}
 
 
@@ -60,7 +60,7 @@ def create_label(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     label = Label(board_id=board.id, name=body.name.strip(), color=body.color)
     db.add(label)
     try:
@@ -80,7 +80,7 @@ def update_label(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    label = _get_owned_label(board_id, label_id, user, db)
+    label = _get_writable_label(board_id, label_id, user, db)
     if body.name is not None:
         label.name = body.name.strip()
     if body.color is not None:
@@ -101,7 +101,7 @@ def delete_label(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    label = _get_owned_label(board_id, label_id, user, db)
+    label = _get_writable_label(board_id, label_id, user, db)
     db.delete(label)
     db.commit()
     return {"ok": True}
@@ -115,7 +115,7 @@ def set_card_labels(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = get_owned_board(board_id, user, db)
+    board = get_writable_board(board_id, user, db)
     card = (
         db.query(KanbanCard)
         .join(KanbanColumn)

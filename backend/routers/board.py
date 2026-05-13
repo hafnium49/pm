@@ -87,26 +87,33 @@ def create_card(
 
 
 @router.delete("/api/board/cards/{card_id}")
-def delete_card(
+def archive_card(
     card_id: int,
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
+    """Soft-delete on the legacy single-board endpoint — mirrors the new /api/boards behaviour."""
+    from datetime import datetime, timezone
+
     board = get_default_board(user, db)
     card = (
         db.query(KanbanCard)
         .join(KanbanColumn)
-        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
+        .filter(
+            KanbanCard.id == card_id,
+            KanbanColumn.board_id == board.id,
+            KanbanCard.archived_at.is_(None),
+        )
         .first()
     )
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     col_id = card.column_id
-    db.delete(card)
+    card.archived_at = datetime.now(timezone.utc)
     db.flush()
     remaining = (
         db.query(KanbanCard)
-        .filter_by(column_id=col_id)
+        .filter(KanbanCard.column_id == col_id, KanbanCard.archived_at.is_(None))
         .order_by(KanbanCard.position)
         .all()
     )

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from backend.auth import require_user
 from backend.database import get_db
-from backend.deps import get_owned_board
+from backend.deps import get_readable_board, get_writable_board
 from backend.models import Comment, KanbanCard, KanbanColumn, User
 
 router = APIRouter(prefix="/api/boards")
@@ -24,12 +24,22 @@ def _serialize_comment(comment: Comment) -> dict:
     }
 
 
-def _get_card_on_board(board_id: int, card_id: int, user: User, db: Session) -> KanbanCard:
-    board = get_owned_board(board_id, user, db)
+def _get_card_on_board(
+    board_id: int, card_id: int, user: User, db: Session, *, writable: bool
+) -> KanbanCard:
+    board = (
+        get_writable_board(board_id, user, db)
+        if writable
+        else get_readable_board(board_id, user, db)
+    )
     card = (
         db.query(KanbanCard)
         .join(KanbanColumn)
-        .filter(KanbanCard.id == card_id, KanbanColumn.board_id == board.id)
+        .filter(
+            KanbanCard.id == card_id,
+            KanbanColumn.board_id == board.id,
+            KanbanCard.archived_at.is_(None),
+        )
         .first()
     )
     if not card:
@@ -44,7 +54,7 @@ def list_comments(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card_on_board(board_id, card_id, user, db)
+    card = _get_card_on_board(board_id, card_id, user, db, writable=False)
     return {"comments": [_serialize_comment(c) for c in card.comments]}
 
 
@@ -56,7 +66,7 @@ def create_comment(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card_on_board(board_id, card_id, user, db)
+    card = _get_card_on_board(board_id, card_id, user, db, writable=True)
     comment = Comment(card_id=card.id, author_id=user.id, body=body.body.strip())
     db.add(comment)
     db.commit()
@@ -74,7 +84,8 @@ def delete_comment(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card_on_board(board_id, card_id, user, db)
+    # Author-only delete; require at least viewer access to reach the card
+    card = _get_card_on_board(board_id, card_id, user, db, writable=False)
     comment = db.query(Comment).filter_by(id=comment_id, card_id=card.id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")

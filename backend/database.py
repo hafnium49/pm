@@ -16,6 +16,7 @@ SessionLocal = sessionmaker(bind=engine)
 _PENDING_MIGRATIONS: list[tuple[str, str, str]] = [
     ("cards", "priority", "VARCHAR NOT NULL DEFAULT 'medium'"),
     ("cards", "due_date", "DATE"),
+    ("cards", "archived_at", "DATETIME"),
 ]
 
 

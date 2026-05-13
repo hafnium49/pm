@@ -41,6 +41,17 @@ const mockDeleteComment = vi.fn();
 const mockAddColumnOnBoard = vi.fn();
 const mockDeleteColumnOnBoard = vi.fn();
 const mockReorderColumnsOnBoard = vi.fn();
+const mockListArchivedCards = vi.fn();
+const mockRestoreCardOnBoard = vi.fn();
+const mockPurgeArchivedCard = vi.fn();
+const mockListChecklist = vi.fn();
+const mockAddChecklistItem = vi.fn();
+const mockUpdateChecklistItem = vi.fn();
+const mockDeleteChecklistItem = vi.fn();
+const mockListMembers = vi.fn();
+const mockInviteMember = vi.fn();
+const mockUpdateMemberRole = vi.fn();
+const mockRemoveMember = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   listBoards: (...a: unknown[]) => mockListBoards(...a),
@@ -65,6 +76,17 @@ vi.mock("@/lib/api", () => ({
   addColumnOnBoard: (...a: unknown[]) => mockAddColumnOnBoard(...a),
   deleteColumnOnBoard: (...a: unknown[]) => mockDeleteColumnOnBoard(...a),
   reorderColumnsOnBoard: (...a: unknown[]) => mockReorderColumnsOnBoard(...a),
+  listArchivedCards: (...a: unknown[]) => mockListArchivedCards(...a),
+  restoreCardOnBoard: (...a: unknown[]) => mockRestoreCardOnBoard(...a),
+  purgeArchivedCard: (...a: unknown[]) => mockPurgeArchivedCard(...a),
+  listChecklist: (...a: unknown[]) => mockListChecklist(...a),
+  addChecklistItem: (...a: unknown[]) => mockAddChecklistItem(...a),
+  updateChecklistItem: (...a: unknown[]) => mockUpdateChecklistItem(...a),
+  deleteChecklistItem: (...a: unknown[]) => mockDeleteChecklistItem(...a),
+  listMembers: (...a: unknown[]) => mockListMembers(...a),
+  inviteMember: (...a: unknown[]) => mockInviteMember(...a),
+  updateMemberRole: (...a: unknown[]) => mockUpdateMemberRole(...a),
+  removeMember: (...a: unknown[]) => mockRemoveMember(...a),
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
@@ -99,6 +121,25 @@ beforeEach(() => {
   mockAddColumnOnBoard.mockResolvedValue({ id: "100", title: "Blocked", cardIds: [] });
   mockDeleteColumnOnBoard.mockResolvedValue(undefined);
   mockReorderColumnsOnBoard.mockResolvedValue(undefined);
+  mockListArchivedCards.mockReset();
+  mockRestoreCardOnBoard.mockReset();
+  mockPurgeArchivedCard.mockReset();
+  mockListChecklist.mockReset();
+  mockAddChecklistItem.mockReset();
+  mockUpdateChecklistItem.mockReset();
+  mockDeleteChecklistItem.mockReset();
+  mockListMembers.mockReset();
+  mockInviteMember.mockReset();
+  mockUpdateMemberRole.mockReset();
+  mockRemoveMember.mockReset();
+  mockListChecklist.mockResolvedValue([]);
+  mockAddChecklistItem.mockResolvedValue({ id: "1", text: "x", done: false, position: 0 });
+  mockUpdateChecklistItem.mockResolvedValue({ id: "1", text: "x", done: true, position: 0 });
+  mockDeleteChecklistItem.mockResolvedValue(undefined);
+  mockListMembers.mockResolvedValue([]);
+  mockListArchivedCards.mockResolvedValue([]);
+  mockRestoreCardOnBoard.mockResolvedValue({ id: "1-c1" });
+  mockPurgeArchivedCard.mockResolvedValue(undefined);
   mockListLabels.mockResolvedValue([]);
   mockSetCardLabels.mockResolvedValue([]);
   mockCreateLabel.mockResolvedValue({ id: "10", name: "Bug", color: "red" });
@@ -420,6 +461,225 @@ describe("Columns CRUD", () => {
     } finally {
       window.confirm = original;
     }
+  });
+});
+
+describe("Filter integration", () => {
+  const labeledBoard = () => ({
+    id: "1",
+    name: "My Board",
+    columns: [
+      { id: "1-1", title: "Backlog", cardIds: ["a", "b", "c"] },
+      { id: "1-2", title: "Discovery", cardIds: [] },
+      { id: "1-3", title: "In Progress", cardIds: [] },
+      { id: "1-4", title: "Review", cardIds: [] },
+      { id: "1-5", title: "Done", cardIds: [] },
+    ],
+    cards: {
+      a: {
+        id: "a",
+        title: "Refactor API",
+        details: "investigate slow endpoints",
+        priority: "high",
+        due_date: null,
+        labels: [{ id: "10", name: "Backend", color: "blue" }],
+      },
+      b: {
+        id: "b",
+        title: "Design hero",
+        details: "marketing landing page",
+        priority: "low",
+        due_date: null,
+        labels: [],
+      },
+      c: {
+        id: "c",
+        title: "Audit invoices",
+        details: "review for spelling",
+        priority: "medium",
+        due_date: null,
+        labels: [{ id: "11", name: "Finance", color: "amber" }],
+      },
+    },
+  });
+
+  it("renders all cards when filter is empty", async () => {
+    mockFetchBoardById.mockResolvedValueOnce(labeledBoard());
+    mockListLabels.mockResolvedValueOnce([
+      { id: "10", name: "Backend", color: "blue" },
+      { id: "11", name: "Finance", color: "amber" },
+    ]);
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    expect(screen.getByText("Refactor API")).toBeInTheDocument();
+    expect(screen.getByText("Design hero")).toBeInTheDocument();
+    expect(screen.getByText("Audit invoices")).toBeInTheDocument();
+    expect(screen.queryByTestId("filter-summary")).not.toBeInTheDocument();
+  });
+
+  it("hides cards that don't match a text search", async () => {
+    mockFetchBoardById.mockResolvedValueOnce(labeledBoard());
+    mockListLabels.mockResolvedValueOnce([]);
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    await userEvent.type(screen.getByLabelText("Search cards"), "invoices");
+    await waitFor(() => {
+      expect(screen.queryByText("Refactor API")).not.toBeInTheDocument();
+      expect(screen.queryByText("Design hero")).not.toBeInTheDocument();
+      expect(screen.getByText("Audit invoices")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("filter-summary")).toHaveTextContent("1 / 3");
+  });
+
+  it("filters by priority", async () => {
+    mockFetchBoardById.mockResolvedValueOnce(labeledBoard());
+    mockListLabels.mockResolvedValueOnce([]);
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    await userEvent.click(screen.getByRole("checkbox", { name: /filter priority high/i }));
+    await waitFor(() => {
+      expect(screen.getByText("Refactor API")).toBeInTheDocument();
+      expect(screen.queryByText("Design hero")).not.toBeInTheDocument();
+      expect(screen.queryByText("Audit invoices")).not.toBeInTheDocument();
+    });
+  });
+
+  it("clear button resets all filters", async () => {
+    mockFetchBoardById.mockResolvedValueOnce(labeledBoard());
+    mockListLabels.mockResolvedValueOnce([]);
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    await userEvent.type(screen.getByLabelText("Search cards"), "nope");
+    expect(screen.queryByText("Refactor API")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /^clear \(/i }));
+    await waitFor(() => expect(screen.getByText("Refactor API")).toBeInTheDocument());
+  });
+});
+
+describe("Archive modal", () => {
+  it("opens the archive modal and shows an empty state", async () => {
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    await userEvent.click(screen.getByRole("button", { name: /open archive/i }));
+    expect(await screen.findByRole("dialog", { name: /archived cards/i })).toBeInTheDocument();
+    expect(await screen.findByTestId("archive-empty")).toBeInTheDocument();
+    expect(mockListArchivedCards).toHaveBeenCalledWith("1");
+  });
+
+  it("lists archived cards and restores one", async () => {
+    mockListArchivedCards.mockResolvedValueOnce([
+      {
+        id: "10",
+        title: "Old work",
+        details: "leftover",
+        priority: "medium",
+        due_date: null,
+        labels: [],
+        comment_count: 0,
+        archived_at: new Date().toISOString(),
+        column_id: "1-1",
+        column_title: "Backlog",
+      },
+    ]);
+    render(<KanbanBoard />);
+    await screen.findAllByTestId(/^column-/);
+    await userEvent.click(screen.getByRole("button", { name: /open archive/i }));
+    expect(await screen.findByTestId("archived-card-10")).toHaveTextContent("Old work");
+
+    await userEvent.click(screen.getByRole("button", { name: /restore old work/i }));
+    await waitFor(() =>
+      expect(mockRestoreCardOnBoard).toHaveBeenCalledWith("1", "10")
+    );
+    // Restored entry leaves the list
+    await waitFor(() => expect(screen.queryByTestId("archived-card-10")).not.toBeInTheDocument());
+  });
+
+  it("purges with confirmation", async () => {
+    mockListArchivedCards.mockResolvedValueOnce([
+      {
+        id: "11",
+        title: "Forever gone",
+        details: "",
+        priority: "low",
+        due_date: null,
+        labels: [],
+        comment_count: 0,
+        archived_at: new Date().toISOString(),
+        column_id: "1-1",
+        column_title: "Backlog",
+      },
+    ]);
+    const original = window.confirm;
+    window.confirm = () => true;
+    try {
+      render(<KanbanBoard />);
+      await screen.findAllByTestId(/^column-/);
+      await userEvent.click(screen.getByRole("button", { name: /open archive/i }));
+      await screen.findByTestId("archived-card-11");
+      await userEvent.click(
+        screen.getByRole("button", { name: /permanently delete forever gone/i })
+      );
+      await waitFor(() =>
+        expect(mockPurgeArchivedCard).toHaveBeenCalledWith("1", "11")
+      );
+    } finally {
+      window.confirm = original;
+    }
+  });
+});
+
+describe("Checklist integration", () => {
+  it("adds a subtask via addChecklistItem", async () => {
+    mockAddChecklistItem.mockResolvedValueOnce({
+      id: "i1",
+      text: "ship it",
+      done: false,
+      position: 0,
+    });
+    render(<KanbanBoard />);
+    const card = await screen.findByTestId("card-1-c1");
+    await userEvent.click(card);
+    await screen.findByRole("dialog");
+    await userEvent.type(screen.getByLabelText(/new checklist item/i), "ship it");
+    await userEvent.click(screen.getByRole("button", { name: /add subtask/i }));
+    await waitFor(() =>
+      expect(mockAddChecklistItem).toHaveBeenCalledWith("1", "1-c1", "ship it")
+    );
+    expect(await screen.findByText("ship it")).toBeInTheDocument();
+  });
+
+  it("toggles a subtask via updateChecklistItem", async () => {
+    mockListChecklist.mockResolvedValueOnce([
+      { id: "i1", text: "do thing", done: false, position: 0 },
+    ]);
+    mockUpdateChecklistItem.mockResolvedValueOnce({
+      id: "i1",
+      text: "do thing",
+      done: true,
+      position: 0,
+    });
+    render(<KanbanBoard />);
+    const card = await screen.findByTestId("card-1-c1");
+    await userEvent.click(card);
+    await screen.findByTestId("checklist-item-i1");
+    await userEvent.click(screen.getByRole("checkbox", { name: /toggle do thing/i }));
+    await waitFor(() =>
+      expect(mockUpdateChecklistItem).toHaveBeenCalledWith("1", "1-c1", "i1", { done: true })
+    );
+  });
+
+  it("deletes a subtask via deleteChecklistItem", async () => {
+    mockListChecklist.mockResolvedValueOnce([
+      { id: "i1", text: "trash me", done: false, position: 0 },
+    ]);
+    render(<KanbanBoard />);
+    const card = await screen.findByTestId("card-1-c1");
+    await userEvent.click(card);
+    await screen.findByTestId("checklist-item-i1");
+    await userEvent.click(screen.getByRole("button", { name: /delete trash me/i }));
+    await waitFor(() =>
+      expect(mockDeleteChecklistItem).toHaveBeenCalledWith("1", "1-c1", "i1")
+    );
   });
 });
 
