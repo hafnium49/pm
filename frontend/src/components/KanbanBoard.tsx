@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import {
@@ -31,7 +31,7 @@ import {
   type Member,
 } from "@/lib/kanban";
 import * as api from "@/lib/api";
-import type { BoardSummary, CardUpdate } from "@/lib/api";
+import type { ArchivedCard, BoardSummary, CardUpdate } from "@/lib/api";
 import { AIChatSidebar } from "@/components/AIChatSidebar";
 import { AccountSettingsModal } from "@/components/AccountSettingsModal";
 import { ArchiveModal } from "@/components/ArchiveModal";
@@ -44,7 +44,6 @@ import {
   UserIcon,
   UsersIcon,
 } from "@/components/icons";
-import type { ArchivedCard } from "@/lib/api";
 import {
   cardMatches,
   emptyFilter,
@@ -184,8 +183,6 @@ export const KanbanBoard = () => {
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor)
   );
-
-  const cardsById = useMemo(() => board?.cards ?? {}, [board?.cards]);
 
   const handleSwitchBoard = async (boardId: string) => {
     if (boardId === currentBoardId) return;
@@ -801,23 +798,24 @@ export const KanbanBoard = () => {
     }
   }, [currentBoardId, loadBoard, refreshBoards, showError]);
 
-  const activeCard = activeCardId ? cardsById[activeCardId] : null;
+  const activeCard = activeCardId && board ? board.cards[activeCardId] : null;
   const totalCards = board?.columns.reduce((sum, c) => sum + c.cardIds.length, 0) ?? 0;
 
-  const filteredColumns = useMemo(() => {
-    if (!board) return [] as { id: string; title: string; cardIds: string[] }[];
-    if (!isFilterActive(filter)) {
-      return board.columns;
-    }
-    const today = new Date();
-    return board.columns.map((col) => ({
-      ...col,
-      cardIds: col.cardIds.filter((cid) => {
-        const c = board.cards[cid];
-        return c ? cardMatches(c, filter, today) : false;
-      }),
-    }));
-  }, [board, filter]);
+  const filterActive = isFilterActive(filter);
+  const filteredColumns = !board
+    ? []
+    : !filterActive
+    ? board.columns
+    : (() => {
+        const today = new Date();
+        return board.columns.map((col) => ({
+          ...col,
+          cardIds: col.cardIds.filter((cid) => {
+            const c = board.cards[cid];
+            return c ? cardMatches(c, filter, today) : false;
+          }),
+        }));
+      })();
 
   const matchingCards = filteredColumns.reduce((sum, c) => sum + c.cardIds.length, 0);
   const currentRole: BoardRole =
