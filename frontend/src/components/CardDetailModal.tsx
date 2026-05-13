@@ -38,10 +38,10 @@ type Props = {
   onDeleteComment: (commentId: string) => Promise<void>;
 };
 
-const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
+const PRIORITY_OPTIONS: { value: Priority; label: string; activeClass: string }[] = [
+  { value: "low", label: "Low", activeClass: "bg-[var(--primary-blue)] text-white" },
+  { value: "medium", label: "Medium", activeClass: "bg-[var(--accent-yellow)] text-[var(--navy-dark)]" },
+  { value: "high", label: "High", activeClass: "bg-red-500 text-white" },
 ];
 
 export const CardDetailModal = ({
@@ -221,27 +221,24 @@ export const CardDetailModal = ({
                 aria-label="Priority"
                 className="mt-1 inline-flex rounded-full border border-[var(--stroke)] bg-[var(--surface)] p-1"
               >
-                {PRIORITY_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={priority === opt.value}
-                    onClick={() => setPriority(opt.value)}
-                    className={clsx(
-                      "rounded-full px-3 py-1 text-xs font-semibold transition",
-                      priority === opt.value
-                        ? opt.value === "high"
-                          ? "bg-red-500 text-white"
-                          : opt.value === "low"
-                          ? "bg-[var(--primary-blue)] text-white"
-                          : "bg-[var(--accent-yellow)] text-[var(--navy-dark)]"
-                        : "text-[var(--gray-text)] hover:text-[var(--navy-dark)]"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+                {PRIORITY_OPTIONS.map((opt) => {
+                  const active = priority === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setPriority(opt.value)}
+                      className={clsx(
+                        "rounded-full px-3 py-1 text-xs font-semibold transition",
+                        active ? opt.activeClass : "text-[var(--gray-text)] hover:text-[var(--navy-dark)]"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

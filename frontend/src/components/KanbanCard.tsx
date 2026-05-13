@@ -118,45 +118,43 @@ export const KanbanCard = ({ card, onDelete, onOpen }: KanbanCardProps) => {
               {card.details}
             </p>
           )}
-          {(due || (card.comment_count ?? 0) > 0 || (card.checklist_total ?? 0) > 0) && (
+          {(due || commentCount > 0 || checklistTotal > 0) && (
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {due && (
+              {due && status && (
                 <span
                   className={clsx(
                     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                    status === "overdue" && "bg-red-50 text-red-700",
-                    status === "today" && "bg-amber-50 text-amber-700",
-                    status === "upcoming" && "bg-[var(--surface)] text-[var(--gray-text)]"
+                    DUE_BADGE_CLASS[status]
                   )}
-                  title={`Due ${due}${status === "overdue" ? " (overdue)" : status === "today" ? " (today)" : ""}`}
+                  title={`Due ${due}${DUE_STATUS_SUFFIX[status]}`}
                 >
                   <CalendarIcon width={11} height={11} />
                   {formatDue(due)}
                 </span>
               )}
-              {(card.checklist_total ?? 0) > 0 && (
+              {checklistTotal > 0 && (
                 <span
                   className={clsx(
                     "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                    (card.checklist_done ?? 0) === card.checklist_total
+                    checklistDone === checklistTotal
                       ? "bg-emerald-50 text-emerald-700"
                       : "text-[var(--gray-text)]"
                   )}
                   data-testid="checklist-count"
-                  title={`${card.checklist_done ?? 0} of ${card.checklist_total} done`}
+                  title={`${checklistDone} of ${checklistTotal} done`}
                 >
                   <ChecklistIcon width={11} height={11} />
-                  {card.checklist_done ?? 0}/{card.checklist_total}
+                  {checklistDone}/{checklistTotal}
                 </span>
               )}
-              {(card.comment_count ?? 0) > 0 && (
+              {commentCount > 0 && (
                 <span
                   className="inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--gray-text)]"
                   data-testid="comment-count"
-                  title={`${card.comment_count} comments`}
+                  title={`${commentCount} comments`}
                 >
                   <CommentIcon width={11} height={11} />
-                  {card.comment_count}
+                  {commentCount}
                 </span>
               )}
             </div>
