@@ -522,16 +522,6 @@ export const KanbanBoard = () => {
     }
   };
 
-  const setCardLabelsLocally = (cardId: string, labels: Label[]) => {
-    setBoard((prev) => {
-      if (!prev || !prev.cards[cardId]) return prev;
-      return {
-        ...prev,
-        cards: { ...prev.cards, [cardId]: { ...prev.cards[cardId], labels } },
-      };
-    });
-  };
-
   const handleToggleCardLabel = async (cardId: string, labelId: string) => {
     if (!board || !currentBoardId) return;
     const current = board.cards[cardId]?.labels ?? [];
@@ -541,7 +531,13 @@ export const KanbanBoard = () => {
       : [...current.map((l) => l.id), labelId];
     try {
       const updated = await api.setCardLabels(currentBoardId, cardId, nextIds);
-      setCardLabelsLocally(cardId, updated);
+      setBoard((prev) => {
+        if (!prev?.cards[cardId]) return prev;
+        return {
+          ...prev,
+          cards: { ...prev.cards, [cardId]: { ...prev.cards[cardId], labels: updated } },
+        };
+      });
     } catch {
       showError("Failed to update card labels.");
     }
@@ -596,21 +592,21 @@ export const KanbanBoard = () => {
     }
   };
 
-  const bumpCommentCount = (cardId: string, delta: number) => {
+  const patchCard = (cardId: string, patch: (c: BoardData["cards"][string]) => Partial<BoardData["cards"][string]>) => {
     setBoard((prev) => {
-      if (!prev || !prev.cards[cardId]) return prev;
+      if (!prev?.cards[cardId]) return prev;
       const c = prev.cards[cardId];
       return {
         ...prev,
-        cards: {
-          ...prev.cards,
-          [cardId]: {
-            ...c,
-            comment_count: Math.max(0, (c.comment_count ?? 0) + delta),
-          },
-        },
+        cards: { ...prev.cards, [cardId]: { ...c, ...patch(c) } },
       };
     });
+  };
+
+  const bumpCommentCount = (cardId: string, delta: number) => {
+    patchCard(cardId, (c) => ({
+      comment_count: Math.max(0, (c.comment_count ?? 0) + delta),
+    }));
   };
 
   const handlePostComment = async (cardId: string, body: string) => {
@@ -743,11 +739,11 @@ export const KanbanBoard = () => {
   const handleDeleteCard = (columnId: string, cardId: string) => {
     if (!board || !currentBoardId) return;
     const prevBoard = board;
-    const { [cardId]: _removed, ...remainingCards } = board.cards;
-    void _removed;
+    const nextCards = { ...board.cards };
+    delete nextCards[cardId];
     setBoard({
       ...board,
-      cards: remainingCards,
+      cards: nextCards,
       columns: board.columns.map((col) =>
         col.id === columnId
           ? { ...col, cardIds: col.cardIds.filter((id) => id !== cardId) }
