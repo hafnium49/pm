@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from backend.auth import require_user
 from backend.database import get_db
-from backend.deps import get_readable_board, get_writable_board
-from backend.models import ChecklistItem, KanbanCard, KanbanColumn, User
+from backend.models import ChecklistItem, User
+from backend.routers.boards import get_active_card_on_board
 
 router = APIRouter(prefix="/api/boards")
 
@@ -28,27 +28,11 @@ def _serialize_item(item: ChecklistItem) -> dict:
     }
 
 
-def _get_card(
-    board_id: int, card_id: int, user: User, db: Session, *, writable: bool
-) -> KanbanCard:
-    board = (
-        get_writable_board(board_id, user, db)
-        if writable
-        else get_readable_board(board_id, user, db)
-    )
-    card = (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(
-            KanbanCard.id == card_id,
-            KanbanColumn.board_id == board.id,
-            KanbanCard.archived_at.is_(None),
-        )
-        .first()
-    )
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-    return card
+def _get_item(db: Session, card_id: int, item_id: int) -> ChecklistItem:
+    item = db.query(ChecklistItem).filter_by(id=item_id, card_id=card_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Checklist item not found")
+    return item
 
 
 @router.get("/{board_id}/cards/{card_id}/checklist")
@@ -58,7 +42,7 @@ def list_checklist(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card(board_id, card_id, user, db, writable=False)
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=False)
     return {"items": [_serialize_item(i) for i in card.checklist_items]}
 
 
@@ -70,7 +54,7 @@ def add_checklist_item(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card(board_id, card_id, user, db, writable=True)
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=True)
     max_pos = max((i.position for i in card.checklist_items), default=-1)
     item = ChecklistItem(
         card_id=card.id,
@@ -93,14 +77,8 @@ def update_checklist_item(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card(board_id, card_id, user, db, writable=True)
-    item = (
-        db.query(ChecklistItem)
-        .filter_by(id=item_id, card_id=card.id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="Checklist item not found")
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=True)
+    item = _get_item(db, card.id, item_id)
     if body.text is not None:
         item.text = body.text.strip()
     if body.done is not None:
@@ -118,17 +96,10 @@ def delete_checklist_item(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card(board_id, card_id, user, db, writable=True)
-    item = (
-        db.query(ChecklistItem)
-        .filter_by(id=item_id, card_id=card.id)
-        .first()
-    )
-    if not item:
-        raise HTTPException(status_code=404, detail="Checklist item not found")
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=True)
+    item = _get_item(db, card.id, item_id)
     db.delete(item)
     db.flush()
-    # Compact positions
     remaining = (
         db.query(ChecklistItem)
         .filter_by(card_id=card.id)

@@ -337,6 +337,21 @@ def _find_card(db: Session, board: Board, card_id: int, *, archived: bool) -> Ka
     )
 
 
+def get_active_card_on_board(
+    board_id: int, card_id: int, user: User, db: Session, *, writable: bool
+) -> KanbanCard:
+    """Resolve a non-archived card on a board the user can access, or raise 404."""
+    board = (
+        get_writable_board(board_id, user, db)
+        if writable
+        else get_readable_board(board_id, user, db)
+    )
+    card = _find_card(db, board, card_id, archived=False)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    return card
+
+
 def _compact_active_positions(db: Session, column_id: int) -> None:
     active = (
         db.query(KanbanCard)

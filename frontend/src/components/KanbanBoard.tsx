@@ -53,6 +53,9 @@ import {
 
 const CURRENT_BOARD_STORAGE_KEY = "kanban.currentBoardId";
 
+const HEADER_ICON_BUTTON =
+  "inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]";
+
 export const KanbanBoard = () => {
   const router = useRouter();
   const [boards, setBoards] = useState<BoardSummary[]>([]);
@@ -394,15 +397,7 @@ export const KanbanBoard = () => {
     try {
       const created = await api.addColumnOnBoard(currentBoardId, title);
       setBoard((prev) =>
-        prev
-          ? {
-              ...prev,
-              columns: [
-                ...prev.columns,
-                { id: created.id, title: created.title, cardIds: created.cardIds },
-              ],
-            }
-          : prev,
+        prev ? { ...prev, columns: [...prev.columns, created] } : prev,
       );
       setBoards((bs) =>
         bs.map((b) =>
@@ -819,7 +814,7 @@ export const KanbanBoard = () => {
               onClick={handleOpenMembers}
               aria-label="Open members"
               title="Board members"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+              className={HEADER_ICON_BUTTON}
             >
               <UsersIcon />
             </button>
@@ -827,7 +822,7 @@ export const KanbanBoard = () => {
               onClick={handleOpenArchive}
               aria-label="Open archive"
               title="Archived cards"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+              className={HEADER_ICON_BUTTON}
             >
               <ArchiveIcon />
             </button>
@@ -858,7 +853,7 @@ export const KanbanBoard = () => {
             <button
               onClick={handleLogout}
               aria-label="Log out"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[var(--stroke)] text-[var(--gray-text)] transition hover:border-[var(--navy-dark)] hover:text-[var(--navy-dark)]"
+              className={HEADER_ICON_BUTTON}
               title="Log out"
             >
               <LogOutIcon />

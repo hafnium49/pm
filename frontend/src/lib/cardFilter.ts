@@ -16,20 +16,18 @@ export const emptyFilter: CardFilter = {
   due: "any",
 };
 
-export const isFilterActive = (f: CardFilter): boolean =>
-  f.text.trim() !== "" ||
-  f.labelIds.size > 0 ||
-  f.priorities.size > 0 ||
-  f.due !== "any";
+const activeFacets = (f: CardFilter): boolean[] => [
+  f.text.trim() !== "",
+  f.labelIds.size > 0,
+  f.priorities.size > 0,
+  f.due !== "any",
+];
 
-export const activeFilterCount = (f: CardFilter): number => {
-  let n = 0;
-  if (f.text.trim()) n += 1;
-  if (f.labelIds.size > 0) n += 1;
-  if (f.priorities.size > 0) n += 1;
-  if (f.due !== "any") n += 1;
-  return n;
-};
+export const isFilterActive = (f: CardFilter): boolean =>
+  activeFacets(f).some(Boolean);
+
+export const activeFilterCount = (f: CardFilter): number =>
+  activeFacets(f).filter(Boolean).length;
 
 const startOfDay = (d: Date): Date => {
   const x = new Date(d);
@@ -62,26 +60,34 @@ export const cardMatches = (card: Card, f: CardFilter, today: Date): boolean => 
     if (!f.priorities.has(p)) return false;
   }
 
-  // Due
-  if (f.due !== "any") {
-    if (f.due === "none") {
-      if (card.due_date) return false;
-    } else {
-      if (!card.due_date) return false;
-      const d = parseDue(card.due_date);
-      if (!d) return false;
-      const todayStart = startOfDay(today);
-      if (f.due === "overdue") {
-        if (d.getTime() >= todayStart.getTime()) return false;
-      } else if (f.due === "today") {
-        if (d.getTime() !== todayStart.getTime()) return false;
-      } else if (f.due === "week") {
-        const endOfWeek = new Date(todayStart);
-        endOfWeek.setDate(todayStart.getDate() + 7);
-        if (d.getTime() < todayStart.getTime() || d.getTime() > endOfWeek.getTime()) return false;
-      }
-    }
+  if (f.due !== "any" && !dueMatches(card.due_date ?? null, f.due, today)) {
+    return false;
   }
 
   return true;
 };
+
+function dueMatches(
+  cardDue: string | null,
+  filter: Exclude<DueFilter, "any">,
+  today: Date,
+): boolean {
+  if (filter === "none") return cardDue === null;
+  if (!cardDue) return false;
+  const d = parseDue(cardDue);
+  if (!d) return false;
+  const todayStart = startOfDay(today);
+  const cardTime = d.getTime();
+  const todayTime = todayStart.getTime();
+  switch (filter) {
+    case "overdue":
+      return cardTime < todayTime;
+    case "today":
+      return cardTime === todayTime;
+    case "week": {
+      const weekEnd = new Date(todayStart);
+      weekEnd.setDate(todayStart.getDate() + 7);
+      return cardTime >= todayTime && cardTime <= weekEnd.getTime();
+    }
+  }
+}

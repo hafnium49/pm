@@ -31,6 +31,9 @@ class SetCardLabelsBody(BaseModel):
     label_ids: list[int]
 
 
+_DUPLICATE_LABEL_DETAIL = "A label with that name already exists on this board"
+
+
 def _serialize_label(label: Label) -> dict:
     return {"id": str(label.id), "name": label.name, "color": label.color}
 
@@ -41,6 +44,14 @@ def _get_writable_label(board_id: int, label_id: int, user: User, db: Session) -
     if not label:
         raise HTTPException(status_code=404, detail="Label not found")
     return label
+
+
+def _commit_label(db: Session) -> None:
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail=_DUPLICATE_LABEL_DETAIL)
 
 
 @router.get("/{board_id}/labels")
@@ -63,11 +74,7 @@ def create_label(
     board = get_writable_board(board_id, user, db)
     label = Label(board_id=board.id, name=body.name.strip(), color=body.color)
     db.add(label)
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="A label with that name already exists on this board")
+    _commit_label(db)
     db.refresh(label)
     return _serialize_label(label)
 
@@ -85,11 +92,7 @@ def update_label(
         label.name = body.name.strip()
     if body.color is not None:
         label.color = body.color
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=409, detail="A label with that name already exists on this board")
+    _commit_label(db)
     db.refresh(label)
     return _serialize_label(label)
 

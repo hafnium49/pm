@@ -40,10 +40,15 @@ export const BoardSwitcher = ({
   const current = boards.find((b) => b.id === currentBoardId) ?? boards[0];
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setCreating(false);
+      setRenamingId(null);
+      setNewName("");
+      setRenameValue("");
+      return;
+    }
     const onDoc = (e: MouseEvent) => {
-      if (!wrapperRef.current) return;
-      if (!wrapperRef.current.contains(e.target as Node)) {
+      if (!wrapperRef.current?.contains(e.target as Node)) {
         setOpen(false);
         setCreating(false);
         setRenamingId(null);
@@ -51,15 +56,6 @@ export const BoardSwitcher = ({
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      setCreating(false);
-      setRenamingId(null);
-      setNewName("");
-      setRenameValue("");
-    }
   }, [open]);
 
   const handleCreate = async (e: FormEvent) => {

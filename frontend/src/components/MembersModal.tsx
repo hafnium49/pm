@@ -48,8 +48,6 @@ export const MembersModal = ({
     { kind: "idle" } | { kind: "saving" } | { kind: "error"; message: string }
   >({ kind: "idle" });
 
-  // Modal unmounts when `open` is false (see early return below), so state
-  // is re-initialized on each open — no explicit reset effect needed.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

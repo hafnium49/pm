@@ -47,8 +47,6 @@ export const AccountSettingsModal = ({
   const [delConfirmText, setDelConfirmText] = useState("");
   const [delState, setDelState] = useState<SectionState>({ kind: "idle" });
 
-  // Modal unmounts when `open` is false (see early return below), so all form
-  // state is re-initialized on each open — no explicit reset effect needed.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {

@@ -35,8 +35,6 @@ export const CommentsSection = ({
   onPost,
   onDelete,
 }: Props) => {
-  // CommentsSection mounts/unmounts with the parent CardDetailModal, so the
-  // draft body is reset naturally per card-open — no reset effect needed.
   const [body, setBody] = useState("");
 
   const handleSubmit = async () => {

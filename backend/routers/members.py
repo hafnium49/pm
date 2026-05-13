@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from backend.auth import require_user
 from backend.database import get_db
 from backend.deps import effective_role, get_owned_board, get_readable_board
-from backend.models import Board, BoardMembership, User
+from backend.models import BoardMembership, User
 
 router = APIRouter(prefix="/api/boards")
 
@@ -108,19 +108,15 @@ def remove_member(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    board = db.query(Board).filter_by(id=board_id).first()
-    if not board:
-        raise HTTPException(status_code=404, detail="Board not found")
-    role = effective_role(board, user, db)
-    if role is None:
-        raise HTTPException(status_code=404, detail="Board not found")
-    # Owner cannot be removed; they must delete the board instead
+    # Viewer access is enough to reach this route; finer permission check below.
+    board = get_readable_board(board_id, user, db)
     if user_id == board.user_id:
         raise HTTPException(
             status_code=400,
             detail="The owner cannot be removed. Delete the board instead.",
         )
-    # Permission: owner can remove anyone; non-owners can only remove themselves
+    # Owner can remove anyone; non-owners can only remove themselves.
+    role = effective_role(board, user, db)
     if user_id != user.id and role != "owner":
         raise HTTPException(status_code=403, detail="Only the owner can remove other members")
     membership = (

@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 
 from backend.auth import require_user
 from backend.database import get_db
-from backend.deps import get_readable_board, get_writable_board
-from backend.models import Comment, KanbanCard, KanbanColumn, User
+from backend.models import Comment, User
+from backend.routers.boards import get_active_card_on_board
 
 router = APIRouter(prefix="/api/boards")
 
@@ -24,29 +24,6 @@ def _serialize_comment(comment: Comment) -> dict:
     }
 
 
-def _get_card_on_board(
-    board_id: int, card_id: int, user: User, db: Session, *, writable: bool
-) -> KanbanCard:
-    board = (
-        get_writable_board(board_id, user, db)
-        if writable
-        else get_readable_board(board_id, user, db)
-    )
-    card = (
-        db.query(KanbanCard)
-        .join(KanbanColumn)
-        .filter(
-            KanbanCard.id == card_id,
-            KanbanColumn.board_id == board.id,
-            KanbanCard.archived_at.is_(None),
-        )
-        .first()
-    )
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-    return card
-
-
 @router.get("/{board_id}/cards/{card_id}/comments")
 def list_comments(
     board_id: int,
@@ -54,7 +31,7 @@ def list_comments(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card_on_board(board_id, card_id, user, db, writable=False)
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=False)
     return {"comments": [_serialize_comment(c) for c in card.comments]}
 
 
@@ -66,13 +43,12 @@ def create_comment(
     user: User = Depends(require_user),
     db: Session = Depends(get_db),
 ):
-    card = _get_card_on_board(board_id, card_id, user, db, writable=True)
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=True)
     comment = Comment(card_id=card.id, author_id=user.id, body=body.body.strip())
     db.add(comment)
     db.commit()
     db.refresh(comment)
-    # Eager-load author for serialization
-    _ = comment.author
+    _ = comment.author  # eager-load for serialization
     return _serialize_comment(comment)
 
 
@@ -85,7 +61,7 @@ def delete_comment(
     db: Session = Depends(get_db),
 ):
     # Author-only delete; require at least viewer access to reach the card
-    card = _get_card_on_board(board_id, card_id, user, db, writable=False)
+    card = get_active_card_on_board(board_id, card_id, user, db, writable=False)
     comment = db.query(Comment).filter_by(id=comment_id, card_id=card.id).first()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
